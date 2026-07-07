@@ -60,7 +60,7 @@ const Navbar = ({ activeView, setActiveView }) => {
     }
   };
 
-  const openDoubtsCount = doubts.filter(d => d.status === 'Open').length;
+  const openDoubtsCount = (doubts || []).filter(d => d.status === 'Open').length;
   const [notifOpen, setNotifOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   const [adminForm, setAdminForm] = useState({ username: adminUser?.username || '', role: adminUser?.role || '' });

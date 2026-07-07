@@ -105,7 +105,9 @@ const DataList = ({
                 <tr key={row.id || rowIdx}>
                   {columns.map((col, colIdx) => (
                     <td key={colIdx}>
-                      {col.render ? col.render(row) : row[col.key]}
+                      {col.render ? col.render(row) : (col.key === 'actions' ? '' : row[col.key])}
+
+
                     </td>
                   ))}
                 </tr>

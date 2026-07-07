@@ -1,0 +1,4 @@
+- [ ] Expose `uploadPdf` in `src/context/AdminContext.jsx` (map to `adminUploadPdf`)
+- [ ] In `src/views/StudyMaterial.jsx`, call `fetchStudyLibrary()` on mount (and when auth becomes available) so note creation uses server-backed subject IDs
+- [ ] Re-test “Study Library” page: select class -> notes add -> PDF upload
+- [ ] If 404 persists, adjust `adminAddNote` endpoint/path to match backend expectations

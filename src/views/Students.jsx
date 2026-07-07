@@ -4,9 +4,11 @@ import DataList from '../components/DataList';
 import ActionModal from '../components/ActionModal';
 
 const Students = () => {
-  const { students, parents, addStudent, updateStudent, deleteStudent } = useAdmin();
+  const { students, parents, addStudent, updateStudent, updateStudentPoints, deleteStudent } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
+  const [pointsModalOpen, setPointsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
+  const [pointsStudent, setPointsStudent] = useState(null);
   
   // Form State
   const [name, setName] = useState('');
@@ -15,6 +17,9 @@ const Students = () => {
   const [rewardPoints, setRewardPoints] = useState(0);
   const [leaderboardRank, setLeaderboardRank] = useState(1);
   const [selectedParents, setSelectedParents] = useState([]);
+  
+  // Points Management State
+  const [pointsChange, setPointsChange] = useState(0);
 
   const openAddModal = () => {
     setEditingStudent(null);
@@ -38,26 +43,40 @@ const Students = () => {
     setModalOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const studentData = {
       name,
       email,
       grade,
-      rewardPoints: Number(rewardPoints),
+      'wallet.aiCredits': Number(rewardPoints),
       leaderboardRank: Number(leaderboardRank),
       parentIds: selectedParents
     };
 
     if (editingStudent) {
-      updateStudent(editingStudent.id, studentData);
+      await updateStudent(editingStudent.id, studentData);
     } else {
-      addStudent(studentData);
+      await addStudent(studentData);
     }
     setModalOpen(false);
   };
 
-  const handleQuickReward = (student, pointsToAdd) => {
-    updateStudent(student.id, { rewardPoints: student.rewardPoints + pointsToAdd });
+  const handleQuickReward = async (student, pointsToAdd) => {
+    const newPoints = (student.rewardPoints || 0) + pointsToAdd;
+    await updateStudentPoints(student.id, newPoints);
+  };
+
+  const openPointsModal = (student) => {
+    setPointsStudent(student);
+    setPointsChange(0);
+    setPointsModalOpen(true);
+  };
+
+  const handlePointsSubmit = async () => {
+    if (!pointsStudent) return;
+    const newPoints = Math.max(0, (pointsStudent.rewardPoints || 0) + pointsChange);
+    await updateStudentPoints(pointsStudent.id, newPoints);
+    setPointsModalOpen(false);
   };
 
   const handleParentToggle = (parentId) => {
@@ -70,15 +89,21 @@ const Students = () => {
 
   const columns = [
     { header: 'ID', key: 'id', width: '60px' },
-    { header: 'Name', key: 'name', render: (row) => (
-      <div className="cell-user">
-        <div className="cell-avatar student">S</div>
-        <div className="cell-info">
+    {
+      header: 'Name',
+      key: 'name',
+      render: (row) => (
+        <div className="cell-user">
+          <div className="cell-avatar student">S</div>
           <span className="user-name">{row.name}</span>
-          <span className="user-email">{row.email}</span>
         </div>
-      </div>
-    )},
+      )
+    },
+    {
+      header: 'Email',
+      key: 'email',
+      render: (row) => <span className="user-email">{row.email}</span>
+    },
     { header: 'Grade', key: 'grade', render: (row) => (
       <span className="badge badge-student">{row.grade}</span>
     )},
@@ -88,37 +113,68 @@ const Students = () => {
         <div className="quick-points">
           <button className="btn-quick-pts" onClick={() => handleQuickReward(row, 10)}>+10</button>
           <button className="btn-quick-pts" onClick={() => handleQuickReward(row, 50)}>+50</button>
+          <button className="btn-quick-pts manage" onClick={() => openPointsModal(row)} title="Manage Points">⚙️</button>
         </div>
       </div>
     )},
     { header: 'Leaderboard', key: 'leaderboardRank', render: (row) => (
       <span className="rank-value">🏆 #{row.leaderboardRank}</span>
     )},
-    { header: 'Linked Parents', key: 'parentIds', render: (row) => {
-      const linked = parents.filter(p => row.parentIds?.includes(p.id));
-      return (
-        <span className="parents-count">
-          {linked.length > 0 ? linked.map(p => p.name).join(', ') : 'None Linked'}
-        </span>
-      );
-    }},
-    { header: 'Actions', key: 'actions', width: '120px', render: (row) => (
-      <div className="table-actions">
-        <button className="action-icon-btn edit" onClick={() => openEditModal(row)} title="Edit profile">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-          </svg>
-        </button>
-        <button className="action-icon-btn delete" onClick={() => deleteStudent(row.id)} title="Delete student">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
-    )}
+    {
+      header: 'Linked Parents',
+      key: 'parentIds',
+      render: (row) => {
+        const linked = parents.filter(p => row.parentIds?.includes(p.id));
+        return (
+          <span className="parents-count">
+            {linked.length > 0 ? linked.map(p => p.name).join(', ') : 'None Linked'}
+          </span>
+        );
+      }
+    },
+    {
+      header: 'Actions',
+      key: 'actions',
+      width: '120px',
+      render: (row) => (
+        <div className="table-actions">
+          <button
+            className="action-icon-btn edit"
+            onClick={() => openEditModal(row)}
+            title="Edit"
+            aria-label="Edit"
+            type="button"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
+
+          <button
+            className="action-icon-btn delete"
+            onClick={async () => await deleteStudent(row.id)}
+            title="Delete"
+            aria-label="Delete"
+            type="button"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
+        </div>
+      )
+    }
   ];
 
   const gradeOptions = [
+    { value: 'Class 1', label: 'Class 1' },
+    { value: 'Class 2', label: 'Class 2' },
+    { value: 'Class 3', label: 'Class 3' },
+    { value: 'Class 4', label: 'Class 4' },
+    { value: 'Class 5', label: 'Class 5' },
+    { value: 'Class 6', label: 'Class 6' },
+    { value: 'Class 7', label: 'Class 7' },
+    { value: 'Class 8', label: 'Class 8' },
     { value: 'Class 9', label: 'Class 9' },
     { value: 'Class 10', label: 'Class 10' },
     { value: 'Class 11', label: 'Class 11' },
@@ -177,19 +233,27 @@ const Students = () => {
         </div>
 
         <div className="form-row-2">
-          <div className="form-group">
-            <label>Grade Level</label>
-            <select
-              value={grade}
-              onChange={(e) => setGrade(e.target.value)}
-              className="glass-select"
-            >
-              <option value="Class 9">Class 9</option>
-              <option value="Class 10">Class 10</option>
-              <option value="Class 11">Class 11</option>
-              <option value="Class 12">Class 12</option>
-            </select>
-          </div>
+        <div className="form-group">
+          <label>Grade Level</label>
+          <select
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            className="glass-select"
+          >
+            <option value="Class 1">Class 1</option>
+            <option value="Class 2">Class 2</option>
+            <option value="Class 3">Class 3</option>
+            <option value="Class 4">Class 4</option>
+            <option value="Class 5">Class 5</option>
+            <option value="Class 6">Class 6</option>
+            <option value="Class 7">Class 7</option>
+            <option value="Class 8">Class 8</option>
+            <option value="Class 9">Class 9</option>
+            <option value="Class 10">Class 10</option>
+            <option value="Class 11">Class 11</option>
+            <option value="Class 12">Class 12</option>
+          </select>
+        </div>
 
           <div className="form-group">
             <label>Leaderboard Rank</label>
@@ -231,6 +295,37 @@ const Students = () => {
               </label>
             ))}
           </div>
+        </div>
+      </ActionModal>
+
+      <ActionModal
+        isOpen={pointsModalOpen}
+        onClose={() => setPointsModalOpen(false)}
+        title={`Manage Points: ${pointsStudent?.name || ''}`}
+        onSubmit={handlePointsSubmit}
+        submitText="Update Points"
+      >
+        <div className="form-group">
+          <label>Current Points</label>
+          <div className="current-points-display">
+            🪙 {pointsStudent?.rewardPoints || 0}
+          </div>
+        </div>
+
+        <div className="form-group">
+          <label>Points Change (can be negative to subtract)</label>
+          <input
+            type="number"
+            value={pointsChange}
+            onChange={(e) => setPointsChange(Number(e.target.value))}
+            placeholder="Enter points to add (negative to subtract)"
+            className="glass-input"
+          />
+        </div>
+
+        <div className="points-preview">
+          <span>New Total: </span>
+          <strong>🪙 {Math.max(0, (pointsStudent?.rewardPoints || 0) + pointsChange)}</strong>
         </div>
       </ActionModal>
 
@@ -311,6 +406,16 @@ const Students = () => {
           background: rgba(245, 158, 11, 0.15);
           color: #f59e0b;
           border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .btn-quick-pts.manage {
+          background: rgba(59, 130, 246, 0.15);
+          color: var(--accent-blue);
+        }
+
+        .btn-quick-pts.manage:hover {
+          background: rgba(59, 130, 246, 0.25);
+          color: var(--accent-blue);
         }
 
         .rank-value {
@@ -427,6 +532,25 @@ const Students = () => {
 
         .checkbox-text {
           user-select: none;
+        }
+
+        .current-points-display {
+          font-size: 24px;
+          font-weight: 700;
+          color: #f59e0b;
+          padding: 12px;
+          background: rgba(10, 15, 24, 0.4);
+          border-radius: 8px;
+          text-align: center;
+        }
+
+        .points-preview {
+          font-size: 14px;
+          color: var(--text-secondary);
+          text-align: center;
+          padding: 10px;
+          background: rgba(255, 255, 255, 0.02);
+          border-radius: 8px;
         }
       `}</style>
     </div>

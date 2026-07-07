@@ -32,12 +32,12 @@ const Parents = () => {
     setModalOpen(true);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const parentData = { name, email, phone, studentIds: selectedStudents };
     if (editingParent) {
-      updateParent(editingParent.id, parentData);
+      await updateParent(editingParent.id, parentData);
     } else {
-      addParent(parentData);
+      await addParent(parentData);
     }
     setModalOpen(false);
   };
@@ -52,48 +52,76 @@ const Parents = () => {
 
   const columns = [
     { header: 'ID', key: 'id', width: '60px' },
-    { header: 'Name', key: 'name', render: (row) => (
-      <div className="cell-user">
-        <div className="cell-avatar parent">P</div>
-        <div className="cell-info">
+    {
+      header: 'Name',
+      key: 'name',
+      render: (row) => (
+        <div className="cell-user">
+          <div className="cell-avatar parent">P</div>
           <span className="user-name">{row.name}</span>
-          <span className="user-email">{row.email}</span>
         </div>
-      </div>
-    )},
+      )
+    },
+    {
+      header: 'Email',
+      key: 'email',
+      render: (row) => <span className="user-email">{row.email}</span>
+    },
     { header: 'Phone Number', key: 'phone', render: (row) => (
       <span className="phone-value">{row.phone}</span>
     )},
-    { header: 'Linked Students', key: 'studentIds', render: (row) => {
-      const linked = students.filter(s => row.studentIds?.includes(s.id));
-      return (
-        <div className="linked-students-badges">
-          {linked.length > 0 ? (
-            linked.map(s => (
-              <span key={s.id} className="badge badge-student" style={{ marginRight: '6px', marginBottom: '4px' }}>
-                {s.name} ({s.grade})
-              </span>
-            ))
-          ) : (
-            <span className="no-students">None Linked</span>
-          )}
+    {
+      header: 'Linked Students',
+      key: 'studentIds',
+      render: (row) => {
+        const linked = students.filter(s => row.studentIds?.includes(s.id));
+        return (
+          <div className="linked-students-badges">
+            {linked.length > 0 ? (
+              linked.map(s => (
+                <span key={s.id} className="badge badge-student" style={{ marginRight: '6px', marginBottom: '4px' }}>
+                  {s.name} ({s.grade})
+                </span>
+              ))
+            ) : (
+              <span className="no-students">None Linked</span>
+            )}
+          </div>
+        );
+      }
+    },
+    {
+      header: 'Actions',
+      key: 'actions',
+      width: '120px',
+      render: (row) => (
+        <div className="table-actions">
+          <button
+            className="action-icon-btn edit"
+            onClick={() => openEditModal(row)}
+            title="Edit"
+            aria-label="Edit"
+            type="button"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+            </svg>
+          </button>
+
+          <button
+            className="action-icon-btn delete"
+            onClick={async () => await deleteParent(row.id)}
+            title="Delete"
+            aria-label="Delete"
+            type="button"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+          </button>
         </div>
-      );
-    }},
-    { header: 'Actions', key: 'actions', width: '120px', render: (row) => (
-      <div className="table-actions">
-        <button className="action-icon-btn edit" onClick={() => openEditModal(row)} title="Edit profile">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
-          </svg>
-        </button>
-        <button className="action-icon-btn delete" onClick={() => deleteParent(row.id)} title="Delete profile">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-          </svg>
-        </button>
-      </div>
-    )}
+      )
+    }
   ];
 
   return (

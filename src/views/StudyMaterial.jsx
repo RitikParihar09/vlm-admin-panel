@@ -1,28 +1,71 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import ActionModal from '../components/ActionModal';
 
 const StudyMaterial = () => {
-  const { studyLibrary, addResourceToSubject, addSubjectToClass } = useAdmin();
+  const {
+    studyLibrary = [],
+    addResourceToSubject,
+    addSubjectToClass,
+    uploadPdf,
+    fetchStudyLibrary,
+    hasAuth,
+  } = useAdmin();
+
+  // Use studyLibrary from context (which has default values)
+  const displayStudyLibrary = studyLibrary;
+
   const [selectedClass, setSelectedClass] = useState(null);
   const [selectedSubjectId, setSelectedSubjectId] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState('resource');
+
   const [noteTitle, setNoteTitle] = useState('');
   const [noteContent, setNoteContent] = useState('');
   const [noteLink, setNoteLink] = useState('');
+  const [pdfFile, setPdfFile] = useState(null);
+
   const [subjectChoice, setSubjectChoice] = useState('existing');
+
+  const [libraryLoaded, setLibraryLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      if (!hasAuth || !fetchStudyLibrary || libraryLoaded) return;
+      try {
+        await fetchStudyLibrary();
+      } catch (e) {
+        // fetchStudyLibrary already sets globalError via context; keep UI resilient
+      } finally {
+        if (!cancelled) setLibraryLoaded(true);
+      }
+    };
+
+    run();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hasAuth, fetchStudyLibrary, libraryLoaded]);
   const [newSubjectName, setNewSubjectName] = useState('');
+
   const [resourceType, setResourceType] = useState('note');
   const [selectedResourceType, setSelectedResourceType] = useState('note');
 
   const selectedClassData = useMemo(
-    () => studyLibrary.find((cls) => cls.className === selectedClass) || null,
-    [selectedClass, studyLibrary]
+    () => (displayStudyLibrary || []).find(
+      (cls) => cls.className === selectedClass
+    ) || null,
+    [selectedClass, displayStudyLibrary]
   );
 
   const selectedSubject = useMemo(
-    () => selectedClassData?.subjects.find((sub) => sub.id === selectedSubjectId) || null,
+    () =>
+      selectedClassData?.subjects?.find(
+        (sub) => sub.id === selectedSubjectId
+      ) || null,
     [selectedClassData, selectedSubjectId]
   );
 
@@ -39,12 +82,12 @@ const StudyMaterial = () => {
     setModalOpen(true);
   };
 
-  const handleAddResource = () => {
+  const handleAddResource = async () => {
     if (!selectedClassData) return;
 
     if (modalMode === 'subject') {
       if (!newSubjectName.trim()) return;
-      const newSubject = addSubjectToClass(selectedClassData.className, newSubjectName.trim());
+      const newSubject = await addSubjectToClass(selectedClassData.className, newSubjectName.trim());
       if (newSubject) {
         setSelectedSubjectId(newSubject.id);
       }
@@ -54,18 +97,33 @@ const StudyMaterial = () => {
 
     let targetSubject = selectedSubject;
     if (subjectChoice === 'new' && newSubjectName.trim()) {
-      targetSubject = addSubjectToClass(selectedClassData.className, newSubjectName.trim());
+      targetSubject = await addSubjectToClass(selectedClassData.className, newSubjectName.trim());
       setSelectedSubjectId(targetSubject.id);
     }
 
     if (!targetSubject) return;
 
-    addResourceToSubject(selectedClassData.className, targetSubject.id, {
-      title: noteTitle || `${targetSubject.name} ${resourceType === 'paper' ? 'Paper' : 'Note'} ${targetSubject.notes.length + 1}`,
+    // Upload PDF if file is selected
+    let finalLink = noteLink.trim();
+    if (pdfFile && uploadPdf) {
+      try {
+        const uploadResult = await uploadPdf(pdfFile);
+        if (uploadResult?.data?.url) {
+          finalLink = uploadResult.data.url;
+        }
+      } catch (e) {
+        console.error('PDF upload failed:', e);
+      }
+    }
+
+    // Call the context function to add the resource
+    await addResourceToSubject(selectedClass, targetSubject.id, {
+      title: noteTitle || `${targetSubject.name} ${resourceType === 'paper' ? 'Paper' : 'Note'}`,
       content: noteContent || 'New study resource content.',
-      link: noteLink.trim() || '',
-      resourceType
+      link: finalLink,
+      resourceType: resourceType
     });
+    
     setModalOpen(false);
   };
 
@@ -88,7 +146,7 @@ const StudyMaterial = () => {
           <div className="class-panel glass-panel">
             <h3>Classes</h3>
             <div className="class-grid">
-              {studyLibrary.map((cls) => (
+              {displayStudyLibrary.map((cls) => (
                 <button
                   type="button"
                   key={cls.className}
@@ -313,7 +371,21 @@ const StudyMaterial = () => {
               />
             </div>
             <div className="form-group">
-              <label>PDF / Resource Link</label>
+              <label>PDF File Upload</label>
+              <input
+                type="file"
+                accept="application/pdf"
+                onChange={(e) => setPdfFile(e.target.files?.[0] || null)}
+                className="glass-input"
+              />
+              {pdfFile && (
+                <p style={{ marginTop: '8px', fontSize: '12px', color: 'var(--text-muted)' }}>
+                  Selected: {pdfFile.name}
+                </p>
+              )}
+            </div>
+            <div className="form-group">
+              <label>PDF / Resource Link (optional)</label>
               <input
                 type="url"
                 value={noteLink}

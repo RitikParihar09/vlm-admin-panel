@@ -4,7 +4,14 @@ import DashboardCard from '../components/DashboardCard';
 import CustomChart from '../components/CustomChart';
 
 const Dashboard = ({ setActiveView }) => {
-  const { students, teachers, parents, liveClasses, doubts, mcqTasks } = useAdmin();
+  const {
+    students = [],
+    teachers = [],
+    parents = [],
+    liveClasses = [],
+    doubts = [],
+    mcqTasks = []
+  } = useAdmin();
   const [broadcastMessage, setBroadcastMessage] = useState('');
   const [logs, setLogs] = useState([
     { id: 1, time: '17:05', text: 'Daily MCQ Task "Cell Anatomy Quiz" created for Class 9.' },
@@ -28,7 +35,7 @@ const Dashboard = ({ setActiveView }) => {
   const totalStudents = students.length;
   const totalTeachers = teachers.length;
   const totalParents = parents.length;
-  const openDoubts = doubts.filter(d => d.status === 'Open').length;
+  const openDoubts = (doubts || []).filter(d => d.status === 'Open').length;
   const liveCount = liveClasses.filter(c => c.status === 'Live').length;
 
   const handleViewClick = (viewId) => {

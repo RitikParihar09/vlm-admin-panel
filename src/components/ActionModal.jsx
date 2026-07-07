@@ -31,9 +31,9 @@ const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 
           </button>
         </div>
 
-        <form onSubmit={(e) => {
+        <form onSubmit={async (e) => {
           e.preventDefault();
-          if (onSubmit) onSubmit(e);
+          if (onSubmit) await onSubmit(e);
         }}>
           <div className="modal-body">
             {children}

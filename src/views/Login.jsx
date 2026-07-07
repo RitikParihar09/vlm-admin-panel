@@ -1,27 +1,29 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 
 const Login = () => {
-  const { loginAdmin } = useAdmin();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { loginAdmin, authLoading, authError } = useAdmin();
+  const [username, setUsername] = useState('admin@vlm.com');
+  const [password, setPassword] = useState('AdminPassword123');
+  const [localError, setLocalError] = useState('');
 
-  const handleSubmit = (e) => {
+
+
+  useEffect(() => {
+    if (authError) setLocalError(authError);
+  }, [authError]);
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setLoading(true);
+    setLocalError('');
+    const ok = await loginAdmin(username, password);
 
-    // Simulate small latency for realistic loading experience
-    setTimeout(() => {
-      const success = loginAdmin(username, password);
-      setLoading(false);
-      if (!success) {
-        setError('Invalid username or password. (Hint: admin / admin123)');
-      }
-    }, 800);
+    if (!ok) {
+      // authError already set by context; keep fallback
+      setLocalError((prev) => prev || 'Login failed');
+    }
   };
+
 
   return (
     <div className="login-page">
@@ -37,12 +39,14 @@ const Login = () => {
           <p>Admin Portal Dashboard Control</p>
         </div>
 
-        {error && (
+        {(localError || authError) && (
           <div className="error-banner">
+
             <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
             </svg>
-            <span>{error}</span>
+            <span>{localError || authError}</span>
+
           </div>
         )}
 
@@ -73,8 +77,9 @@ const Login = () => {
             />
           </div>
 
-          <button type="submit" className="glass-button login-btn" disabled={loading}>
-            {loading ? (
+          <button type="submit" className="glass-button login-btn" disabled={authLoading}>
+            {authLoading ? (
+
               <span className="spinner"></span>
             ) : (
               <>
