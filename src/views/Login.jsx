@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
-
+import logo from '../assets/logo.png';
+console.log(logo);
 const Login = () => {
   const { loginAdmin, authLoading, authError } = useAdmin();
   const [username, setUsername] = useState('admin@vlm.com');
@@ -34,7 +35,9 @@ const Login = () => {
 
       <div className="login-card glass-panel">
         <div className="login-header">
-          <div className="login-logo">V</div>
+        <div className="login-logo">
+    <img src={logo} alt="VLM Academy Logo" />
+</div>
           <h2>VLM Academy</h2>
           <p>Admin Portal Dashboard Control</p>
         </div>
@@ -94,7 +97,7 @@ const Login = () => {
 
         <div className="login-hints">
           <p>Demo Credentials:</p>
-          <code>Username: admin | Password: admin123</code>
+          <code>Username: admin@vlm.com | Password: AdminPassword123</code>
         </div>
       </div>
 
@@ -106,7 +109,7 @@ const Login = () => {
           align-items: center;
           justify-content: center;
           position: relative;
-          padding: 20px;
+          padding: 10px;
           overflow: hidden;
         }
 
@@ -145,9 +148,9 @@ const Login = () => {
         .login-card {
           width: 100%;
           max-width: 420px;
-          padding: 40px;
-          z-index: 10;
-          border-radius: 24px;
+          padding: 5px;
+          z-index: 5;
+          border-radius: 14px;
           box-shadow: 0 30px 60px rgba(0, 0, 0, 0.4);
           border: 1px solid rgba(255, 255, 255, 0.08);
           background: rgba(15, 23, 42, 0.55);
@@ -155,23 +158,29 @@ const Login = () => {
 
         .login-header {
           text-align: center;
-          margin-bottom: 30px;
+          margin-bottom: 0px;
         }
+.login-logo{
+  width:120px;
+  height:120px;
 
-        .login-logo {
-          width: 48px;
-          height: 48px;
-          border-radius: 14px;
-          background: linear-gradient(135deg, var(--student-color) 0%, var(--parent-color) 100%);
-          color: white;
-          font-weight: 700;
-          font-size: 24px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          box-shadow: 0 0 20px rgba(6, 182, 212, 0.45);
-          margin-bottom: 16px;
-        }
+  display:flex;
+  justify-content:center;
+  align-items:center;
+
+  margin:0 auto 20px;
+
+  background:none;
+  border:none;
+  box-shadow:none;
+}
+
+.login-logo img{
+  width:100%;
+  height:100%;
+  object-fit:contain;
+  display:block;
+}
 
         .login-header h2 {
           font-size: 24px;
@@ -206,14 +215,26 @@ const Login = () => {
           flex-direction: column;
           gap: 18px;
         }
+.login-btn {
+  width: 100%;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
 
-        .login-btn {
-          width: 100%;
-          justify-content: center;
-          padding: 14px;
-          margin-top: 10px;
-          font-size: 15px;
-        }
+  padding: 14px 20px;
+  margin-top: 20px;
+
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.login-btn svg {
+  position: absolute;
+  right: 20px;
+  width: 18px;
+  height: 18px;
+}
 
         .login-hints {
           margin-top: 30px;

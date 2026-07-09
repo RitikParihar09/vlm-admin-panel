@@ -126,6 +126,14 @@ const Navbar = ({ activeView, setActiveView }) => {
           padding: 0 25px;
           border-radius: 16px;
           border: 1px solid var(--panel-border);
+
+          /* keep navbar visible while scrolling */
+          position: sticky;
+          top: 0;
+          z-index: 50;
+          background: rgba(17, 24, 39, 0.65);
+          backdrop-filter: blur(16px);
+          -webkit-backdrop-filter: blur(16px);
         }
 
         .navbar-left h2 {
