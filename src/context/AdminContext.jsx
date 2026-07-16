@@ -15,7 +15,6 @@ import {
   adminUpdateSpinSettings,
   adminAddStudent,
   adminUpdateStudent,
-  adminUpdateStudentPoints,
   adminDeleteStudent,
   adminAddTeacher,
   adminUpdateTeacher,
@@ -47,7 +46,9 @@ const normalizeStudents = (data) => {
     email: st.email || st.emailId || st.email_address,
     phone: st.phone || st.phoneNumber,
     grade: st.grade || st.class || st.standard || st.className,
-    rewardPoints: st.rewardPoints ?? st.points ?? 0,
+    rewardPoints: st.wallet?.totalPoints ?? st.rewardPoints ?? st.points ?? 0,
+    wallet: st.wallet || {},
+    vlmStudentId: st.vlmStudentId || st.vlm_id || st.studentId || undefined,
     leaderboardRank: st.leaderboardRank ?? st.rank ?? 0,
     parentIds: st.parentIds || st.parents || [],
     status: st.status || 'active'
@@ -68,6 +69,10 @@ const normalizeTeachers = (data) => {
     name: tr.name || tr.fullName || tr.full_name,
     email: tr.email || tr.emailId || tr.email_address,
     subject: tr.subject || (Array.isArray(tr.subjects) ? tr.subjects[0] : undefined),
+    wallet: tr.wallet || {},
+    rating: tr.rating,
+    activeClasses: tr.activeClasses,
+    vlmTeacherId: tr.vlmTeacherId || tr.vlm_id || tr.teacherId || undefined,
     status: tr.status || 'active'
   }));
 };
@@ -314,7 +319,7 @@ export const AdminProvider = ({ children }) => {
       return false;
     }
 
-    const token = result.data?.token;
+    const token = result.data?.token || result.data?.accessToken;
     const user = result.data?.user;
 
     if (!token || !user) {
@@ -322,6 +327,7 @@ export const AdminProvider = ({ children }) => {
       setAuthError('Invalid login response');
       return false;
     }
+
 
     setAdminToken(token);
     setAdminUser(user);
@@ -460,29 +466,23 @@ export const AdminProvider = ({ children }) => {
         await refreshAll();
         return true;
       },
-      updateStudent: async (id, payload) => {
+updateStudent: async (id, payload) => {
+        console.log('[DEBUG] updateStudent - ID:', id, 'Payload:', payload);
         const res = await safeAdminCall(() => adminUpdateStudent(id, payload));
         if (!res.ok) {
+          console.log('[DEBUG] updateStudent - Error:', res.error);
           setGlobalError(res.error?.message || 'Failed to update student');
           return false;
         }
         await refreshAll();
         return true;
       },
-      updateStudentPoints: async (id, points) => {
-        const res = await safeAdminCall(() => adminUpdateStudentPoints(id, points));
-        if (!res.ok) {
-          // Fallback: update local state if API fails
-          setStudents(prev => prev.map(s => s.id === id ? { ...s, rewardPoints: points } : s));
-          setGlobalError(res.error?.message || 'Failed to update points (local update applied)');
-          return false;
-        }
-        await refreshAll();
-        return true;
-      },
+
       deleteStudent: async (id) => {
+        console.log('[DEBUG] deleteStudent - ID:', id);
         const res = await safeAdminCall(() => adminDeleteStudent(id));
         if (!res.ok) {
+          console.log('[DEBUG] deleteStudent - Error:', res.error);
           setGlobalError(res.error?.message || 'Failed to delete student');
           return false;
         }
@@ -490,7 +490,7 @@ export const AdminProvider = ({ children }) => {
         return true;
       },
 
-      // Teacher CRUD operations
+// Teacher CRUD operations
       addTeacher: async (payload) => {
         const res = await safeAdminCall(() => adminAddTeacher(payload));
         if (!res.ok) {
@@ -501,8 +501,10 @@ export const AdminProvider = ({ children }) => {
         return true;
       },
       updateTeacher: async (id, payload) => {
+        console.log('[DEBUG] updateTeacher - ID:', id, 'Payload:', payload);
         const res = await safeAdminCall(() => adminUpdateTeacher(id, payload));
         if (!res.ok) {
+          console.log('[DEBUG] updateTeacher - Error:', res.error);
           setGlobalError(res.error?.message || 'Failed to update teacher');
           return false;
         }
@@ -510,8 +512,10 @@ export const AdminProvider = ({ children }) => {
         return true;
       },
       deleteTeacher: async (id) => {
+        console.log('[DEBUG] deleteTeacher - ID:', id);
         const res = await safeAdminCall(() => adminDeleteTeacher(id));
         if (!res.ok) {
+          console.log('[DEBUG] deleteTeacher - Error:', res.error);
           setGlobalError(res.error?.message || 'Failed to delete teacher');
           return false;
         }
@@ -530,8 +534,10 @@ export const AdminProvider = ({ children }) => {
         return true;
       },
       updateParent: async (id, payload) => {
+        console.log('[DEBUG] updateParent - ID:', id, 'Payload:', payload);
         const res = await safeAdminCall(() => adminUpdateParent(id, payload));
         if (!res.ok) {
+          console.log('[DEBUG] updateParent - Error:', res.error);
           setGlobalError(res.error?.message || 'Failed to update parent');
           return false;
         }
@@ -539,8 +545,10 @@ export const AdminProvider = ({ children }) => {
         return true;
       },
       deleteParent: async (id) => {
+        console.log('[DEBUG] deleteParent - ID:', id);
         const res = await safeAdminCall(() => adminDeleteParent(id));
         if (!res.ok) {
+          console.log('[DEBUG] deleteParent - Error:', res.error);
           setGlobalError(res.error?.message || 'Failed to delete parent');
           return false;
         }

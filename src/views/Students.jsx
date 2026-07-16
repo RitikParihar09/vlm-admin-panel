@@ -4,7 +4,7 @@ import DataList from '../components/DataList';
 import ActionModal from '../components/ActionModal';
 
 const Students = () => {
-  const { students, parents, addStudent, updateStudent, updateStudentPoints, deleteStudent } = useAdmin();
+  const { students, parents, addStudent, updateStudent, deleteStudent } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [pointsModalOpen, setPointsModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
@@ -37,33 +37,77 @@ const Students = () => {
     setName(student.name);
     setEmail(student.email);
     setGrade(student.grade);
-    setRewardPoints(student.rewardPoints);
+
+    // Points are stored in wallet.totalPoints on backend.
+    // UI/Context may expose rewardPoints; prefer wallet if present.
+    const totalPoints = student.wallet?.totalPoints ?? student.rewardPoints ?? 0;
+    setRewardPoints(totalPoints);
+
     setLeaderboardRank(student.leaderboardRank);
     setSelectedParents(student.parentIds || []);
     setModalOpen(true);
   };
 
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     const studentData = {
       name,
       email,
       grade,
-      'wallet.aiCredits': Number(rewardPoints),
+      rewardPoints: Number(rewardPoints),
       leaderboardRank: Number(leaderboardRank),
       parentIds: selectedParents
     };
 
+    const normalizedPayload = (() => {
+      // Backend expects:
+      // firstName, middleName, lastName, class, email, mobile, board, leaderboardRank, wallet.totalPoints
+      // For this UI we only collect: name, grade(class), rewardPoints, leaderboardRank, email.
+      // So we must NEVER send undefined fields.
+
+      const fullName = String(name || '').trim();
+      const parts = fullName ? fullName.split(/\s+/) : [];
+      const firstName = parts[0];
+      const lastName = parts.length >= 2 ? parts[parts.length - 1] : undefined;
+      const middleName = parts.length > 2 ? parts.slice(1, parts.length - 1).join(' ') : undefined;
+
+      const classValue = grade; // UI grade maps to backend "class" as requested.
+      const wallet = {
+        totalPoints: Number(rewardPoints),
+      };
+
+      const payload = {
+        class: classValue,
+        email,
+        leaderboardRank: Number(leaderboardRank),
+        wallet,
+      };
+
+      if (firstName) payload.firstName = firstName;
+      if (middleName) payload.middleName = middleName;
+      if (lastName) payload.lastName = lastName;
+
+      return payload;
+    })();
+
     if (editingStudent) {
-      await updateStudent(editingStudent.id, studentData);
+      await updateStudent(editingStudent._id || editingStudent.id, normalizedPayload);
     } else {
-      await addStudent(studentData);
+      await addStudent(normalizedPayload);
     }
     setModalOpen(false);
   };
 
   const handleQuickReward = async (student, pointsToAdd) => {
-    const newPoints = (student.rewardPoints || 0) + pointsToAdd;
-    await updateStudentPoints(student.id, newPoints);
+    const existingTotal = student.wallet?.totalPoints ?? student.rewardPoints ?? 0;
+    const newTotal = Math.max(0, existingTotal + pointsToAdd);
+
+    // Use PUT /students/:_id via existing updateStudent(), and only update wallet.totalPoints.
+    await updateStudent(student._id || student.id, {
+      wallet: {
+        ...(student.wallet || {}),
+        totalPoints: Number(newTotal),
+      },
+    });
   };
 
   const openPointsModal = (student) => {
@@ -74,8 +118,19 @@ const Students = () => {
 
   const handlePointsSubmit = async () => {
     if (!pointsStudent) return;
-    const newPoints = Math.max(0, (pointsStudent.rewardPoints || 0) + pointsChange);
-    await updateStudentPoints(pointsStudent.id, newPoints);
+
+    // Points live in wallet.totalPoints on backend.
+    const existingTotal = pointsStudent.wallet?.totalPoints ?? pointsStudent.rewardPoints ?? 0;
+    const newTotal = Math.max(0, existingTotal + pointsChange);
+
+    // Use PUT /students/:_id via existing updateStudent(), only updating wallet.totalPoints.
+    await updateStudent(pointsStudent._id || pointsStudent.id, {
+      wallet: {
+        ...(pointsStudent.wallet || {}),
+        totalPoints: Number(newTotal),
+      },
+    });
+
     setPointsModalOpen(false);
   };
 
@@ -88,7 +143,9 @@ const Students = () => {
   };
 
   const columns = [
-    { header: 'ID', key: 'id', width: '60px' },
+    { header: 'ID', key: 'vlmStudentId', width: '60px', render: (row) => (
+          <span>{row.vlmStudentId || row.vlmStudentID || '--'}</span>
+    ) },
     {
       header: 'Name',
       key: 'name',
@@ -109,7 +166,8 @@ const Students = () => {
     )},
     { header: 'Reward Points', key: 'rewardPoints', render: (row) => (
       <div className="points-container">
-        <span className="points-val">🪙 {row.rewardPoints}</span>
+        <span className="points-val">🪙 {row.wallet?.totalPoints ?? row.rewardPoints ?? 0}</span>
+
         <div className="quick-points">
           <button className="btn-quick-pts" onClick={() => handleQuickReward(row, 10)}>+10</button>
           <button className="btn-quick-pts" onClick={() => handleQuickReward(row, 50)}>+50</button>
@@ -308,7 +366,7 @@ const Students = () => {
         <div className="form-group">
           <label>Current Points</label>
           <div className="current-points-display">
-            🪙 {pointsStudent?.rewardPoints || 0}
+            🪙 {pointsStudent?.wallet?.totalPoints ?? pointsStudent?.rewardPoints ?? 0}
           </div>
         </div>
 
@@ -325,7 +383,7 @@ const Students = () => {
 
         <div className="points-preview">
           <span>New Total: </span>
-          <strong>🪙 {Math.max(0, (pointsStudent?.rewardPoints || 0) + pointsChange)}</strong>
+          <strong>🪙 {Math.max(0, (pointsStudent?.wallet?.totalPoints ?? pointsStudent?.rewardPoints ?? 0) + pointsChange)}</strong>
         </div>
       </ActionModal>
 

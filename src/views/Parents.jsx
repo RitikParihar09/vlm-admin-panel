@@ -23,19 +23,19 @@ const Parents = () => {
     setModalOpen(true);
   };
 
-  const openEditModal = (parent) => {
+const openEditModal = (parent) => {
     setEditingParent(parent);
     setName(parent.name);
     setEmail(parent.email);
     setPhone(parent.phone);
-    setSelectedStudents(parent.studentIds || []);
+    setSelectedStudents(parent.children || parent.studentIds || []);
     setModalOpen(true);
   };
 
   const handleSubmit = async () => {
     const parentData = { name, email, phone, studentIds: selectedStudents };
     if (editingParent) {
-      await updateParent(editingParent.id, parentData);
+      await updateParent(editingParent._id || editingParent.id, parentData);
     } else {
       await addParent(parentData);
     }
@@ -70,11 +70,11 @@ const Parents = () => {
     { header: 'Phone Number', key: 'phone', render: (row) => (
       <span className="phone-value">{row.phone}</span>
     )},
-    {
+{
       header: 'Linked Students',
-      key: 'studentIds',
+      key: 'children',
       render: (row) => {
-        const linked = students.filter(s => row.studentIds?.includes(s.id));
+        const linked = students.filter(s => (row.children || row.studentIds || []).includes(s.id));
         return (
           <div className="linked-students-badges">
             {linked.length > 0 ? (

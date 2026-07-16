@@ -1,6 +1,7 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'https://vlm-app-backend.onrender.com/api/admin';
+const API_BASE_URL = (import.meta.env.VITE_API_BASE_URL || 'https://vlmacademy.in/api') + '/admin';
+
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -102,18 +103,19 @@ export const adminAddStudent = async (payload) => {
   return res.data;
 };
 
-export const adminUpdateStudentPoints = async (id, points) => {
-  const res = await api.patch(`/students/${id}/points`, { points }, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
-  return res.data;
-};
+
 
 export const adminUpdateStudent = async (id, payload) => {
+  console.log('[DEBUG] adminUpdateStudent - ID:', id, 'Payload:', payload);
   const res = await api.put(`/students/${id}`, payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  console.log('[DEBUG] adminUpdateStudent - Response:', res.data);
   return res.data;
 };
 
 export const adminDeleteStudent = async (id) => {
+  console.log('[DEBUG] adminDeleteStudent - ID:', id);
   const res = await api.delete(`/students/${id}`, attachAuth());
+  console.log('[DEBUG] adminDeleteStudent - Response:', res.data);
   return res.data;
 };
 

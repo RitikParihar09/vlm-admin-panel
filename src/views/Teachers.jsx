@@ -11,6 +11,7 @@ const Teachers = () => {
   // Form State
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  // UI subject field can contain: "Math" or "Math,Physics,Chemistry"
   const [subject, setSubject] = useState('Mathematics');
 
   const openAddModal = () => {
@@ -23,31 +24,76 @@ const Teachers = () => {
 
   const openEditModal = (teacher) => {
     setEditingTeacher(teacher);
-    setName(teacher.name);
+
+    // Teacher model expects firstName/middleName/lastName, but UI currently keeps `name`.
+    // Split when editing so save payload can be correct.
+    const fullName = teacher.fullName || teacher.name || `${teacher.firstName || ''} ${teacher.lastName || ''}`.trim();
+    const parts = String(fullName || '').trim().split(/\s+/).filter(Boolean);
+    const firstName = parts[0];
+    const lastName = parts.length >= 2 ? parts[parts.length - 1] : '';
+    setName([firstName, lastName].filter(Boolean).join(' ').trim());
+
     setEmail(teacher.email);
-    setSubject(teacher.subject);
+
+    // UI subject textbox should accept comma separated values; normalize to a single string.
+    const subjectsArr = Array.isArray(teacher.subjects)
+      ? teacher.subjects
+      : teacher.subjects
+        ? teacher.subjects
+        : teacher.subject
+          ? [teacher.subject]
+          : [];
+    setSubject(subjectsArr.join(', '));
+
+    // Also set display fields (table + UI label) but payload uses firstName/lastName/subjects.
     setModalOpen(true);
   };
 
-  const handleSubmit = async () => {
-    const teacherData = { name, email, subject };
+const handleSubmit = async () => {
+    const fullName = String(name || '').trim();
+    const parts = fullName ? fullName.split(/\s+/).filter(Boolean) : [];
+
+    const firstName = parts[0];
+    const lastName = parts.length >= 2 ? parts[parts.length - 1] : '';
+
+    // Convert UI subject textbox into subjects: [String]
+    const subjects = String(subject || '')
+      .split(',')
+      .map(s => s.trim())
+      .filter(Boolean);
+
+    const teacherPayload = {
+      firstName,
+      lastName,
+      email,
+      subjects,
+    };
+
+    // Never send undefined fields
+    if (!teacherPayload.firstName) delete teacherPayload.firstName;
+    if (!teacherPayload.lastName) delete teacherPayload.lastName;
+    if (!teacherPayload.subjects || teacherPayload.subjects.length === 0) teacherPayload.subjects = [];
+
     if (editingTeacher) {
-      await updateTeacher(editingTeacher.id, teacherData);
+      await updateTeacher(editingTeacher._id || editingTeacher.id, teacherPayload);
     } else {
-      await addTeacher(teacherData);
+      await addTeacher(teacherPayload);
     }
     setModalOpen(false);
   };
 
   const columns = [
-    { header: 'ID', key: 'id', width: '60px' },
+    { header: 'ID', key: 'vlmTeacherId', width: '60px', render: (row) => (
+      <span>{row.vlmTeacherId || '--'}</span>
+    ) },
     {
       header: 'Name',
       key: 'name',
       render: (row) => (
         <div className="cell-user">
-          <div className="cell-avatar teacher">T</div>
+          <div className="cell-avatar teacher" aria-hidden="true" />
           <span className="user-name">{row.name}</span>
+
         </div>
       )
     },
