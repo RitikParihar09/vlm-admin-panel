@@ -27,18 +27,24 @@ const attachAuth = (config = {}) => {
 
 const handleApiError = (err) => {
   const status = err?.response?.status;
+  const serverMsg = err?.response?.data?.message || err?.response?.data?.error || err?.message;
   if (status === 401) {
     // Leave redirect decision to caller (context/router usually owns it).
-    return { status, message: 'Unauthorized', data: err?.response?.data };
+    return { status, message: serverMsg || 'Unauthorized', data: err?.response?.data };
   }
   if (status === 403) {
-    return { status, message: 'Forbidden', data: err?.response?.data };
+    return { status, message: serverMsg || 'Forbidden', data: err?.response?.data };
   }
-  return { status: status || 500, message: 'Internal Server Error', data: err?.response?.data };
+  return { status: status || 500, message: serverMsg || 'Internal Server Error', data: err?.response?.data };
 };
 
 export const adminLogin = async ({ email, password }) => {
   const res = await api.post('/login', { email, password }, { headers: { Accept: 'application/json' } });
+  return res.data;
+};
+
+export const adminGetMe = async () => {
+  const res = await api.get('/me', attachAuth());
   return res.data;
 };
 
@@ -84,6 +90,16 @@ export const adminCreateResource = async (payload) => {
 
 export const adminDeleteResource = async (id) => {
   const res = await api.delete(`/resources/${id}`, attachAuth());
+  return res.data;
+};
+
+export const adminUpdateResource = async (id, payload) => {
+  const res = await api.put(`/resources/${id}`, payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+export const adminDeleteSubject = async (className, subjectId) => {
+  const res = await api.delete(`/study-library/${className}/subjects/${subjectId}`, attachAuth());
   return res.data;
 };
 
@@ -168,14 +184,82 @@ export const adminAddNote = async (className, subjectId, noteData) => {
 };
 
 // File upload for PDF
-export const adminUploadPdf = async (file) => {
+export const adminUploadPdf = async (file, className = '', subjectName = '') => {
   const formData = new FormData();
   formData.append('file', file);
-  const res = await api.post('/upload/pdf', formData, attachAuth({
-    headers: {
-      'Content-Type': 'multipart/form-data'
-    }
-  }));
+  
+  let url = '/upload/pdf';
+  const queryParams = [];
+  if (className) queryParams.push(`className=${encodeURIComponent(className)}`);
+  if (subjectName) queryParams.push(`subject=${encodeURIComponent(subjectName)}`);
+  if (queryParams.length > 0) {
+    url += '?' + queryParams.join('&');
+  }
+
+  const res = await api.post(url, formData, attachAuth());
+  return res.data;
+};
+
+// Employee Management API operations
+export const adminGetEmployees = async () => {
+  const res = await api.get('/employees', attachAuth());
+  return res.data;
+};
+
+export const adminCreateEmployee = async (payload) => {
+  const res = await api.post('/employees', payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+export const adminUpdateEmployee = async (id, payload) => {
+  const res = await api.put(`/employees/${id}`, payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+export const adminDeleteEmployee = async (id) => {
+  const res = await api.delete(`/employees/${id}`, attachAuth());
+  return res.data;
+};
+
+// Integrations Manager API Operations
+export const adminGetIntegrations = async () => {
+  const res = await api.get('/integrations', attachAuth());
+  return res.data;
+};
+
+export const adminUpdateIntegration = async (key, payload) => {
+  const res = await api.put(`/integrations/${key}`, payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+export const adminTestIntegration = async (key) => {
+  const res = await api.post(`/integrations/${key}/test`, {}, attachAuth());
+  return res.data;
+};
+
+// Banner Ads API Operations
+export const adminGetBanners = async () => {
+  const res = await api.get('/banners', attachAuth());
+  return res.data;
+};
+
+export const adminCreateBanner = async (formData) => {
+  const res = await api.post('/banners', formData, attachAuth());
+  return res.data;
+};
+
+export const adminUpdateBanner = async (id, formData) => {
+  const res = await api.put(`/banners/${id}`, formData, attachAuth());
+  return res.data;
+};
+
+export const adminDeleteBanner = async (id) => {
+  const res = await api.delete(`/banners/${id}`, attachAuth());
+  return res.data;
+};
+
+export const adminReorderBanners = async (reorderPayload) => {
+  const res = await api.put('/banners/reorder', reorderPayload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
   return res.data;
 };
 

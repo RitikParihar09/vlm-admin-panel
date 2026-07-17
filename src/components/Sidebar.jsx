@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState } from 'react';
+import { useAdmin } from '../context/AdminContext';
 import {
   FaTachometerAlt,
   FaUserGraduate,
@@ -8,280 +9,573 @@ import {
   FaBook,
   FaClipboardList,
   FaQuestionCircle,
-  FaPlayCircle,
-  FaSignOutAlt
+  FaSignOutAlt,
+  FaRobot,
+  FaTrophy,
+  FaEnvelope,
+  FaCreditCard,
+  FaWallet,
+  FaLifeRing,
+  FaChartLine,
+  FaBullhorn,
+  FaCog,
+  FaShieldAlt,
+  FaImages,
+  FaUserShield,
+  FaChevronLeft,
+  FaChevronRight,
+  FaAngleDown,
+  FaAngleRight,
+  FaLink
 } from "react-icons/fa";
-const Sidebar = ({ activeView, setActiveView, onLogout }) => {
-  const menuItems = [
+import logo from '../assets/logo.png';
+
+const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed }) => {
+  const { adminUser } = useAdmin();
+  const [userMenuExpanded, setUserMenuExpanded] = useState(false);
+
+  const menuSections = [
     {
-      id: "dashboard",
-      name: "Dashboard",
-      icon: <FaTachometerAlt />,
+      title: "MANAGEMENT",
+      items: [
+        {
+          id: "dashboard",
+          name: "Dashboard",
+          icon: <FaTachometerAlt />,
+        },
+        {
+          id: "users",
+          name: "User Management",
+          icon: <FaUsers />,
+          isExpandable: true,
+          expanded: userMenuExpanded,
+          setExpanded: setUserMenuExpanded,
+          subItems: [
+            { id: "students", name: "Students", icon: <FaUserGraduate />, requiredPermission: "students" },
+            { id: "teachers", name: "Teachers", icon: <FaChalkboardTeacher />, requiredPermission: "teachers" },
+            { id: "parents", name: "Parents", icon: <FaUsers />, requiredPermission: "parents" }
+          ]
+        },
+        {
+          id: "studymaterial",
+          name: "Content Management",
+          icon: <FaBook />,
+          requiredPermission: "study-materials"
+        },
+        {
+          id: "aimanager",
+          name: "API Management",
+          icon: <FaLink />,
+          requiredPermission: "ai"
+        },
+        {
+          id: "doubts",
+          name: "Doubt & Session",
+          icon: <FaQuestionCircle />,
+          requiredPermission: "doubts",
+          underMaintenance: true
+        },
+        {
+          id: "liveclasses",
+          name: "Live Class",
+          icon: <FaVideo />,
+          requiredPermission: "liveclasses"
+        },
+        {
+          id: "mcqtasks",
+          name: "Test & MCQ",
+          icon: <FaClipboardList />,
+          requiredPermission: "mcqs"
+        },
+        {
+          id: "gamification",
+          name: "Gamification",
+          icon: <FaTrophy />,
+          requiredPermission: "gamification",
+          underMaintenance: true
+        },
+        {
+          id: "communication",
+          name: "Communication",
+          icon: <FaEnvelope />,
+          requiredPermission: "communication",
+          underMaintenance: true
+        },
+        {
+          id: "subscription",
+          name: "Subscription & Billing",
+          icon: <FaCreditCard />,
+          requiredPermission: "financials",
+          underMaintenance: true
+        },
+        {
+          id: "wallet",
+          name: "Wallet & Rewards",
+          icon: <FaWallet />,
+          requiredPermission: "wallet",
+          underMaintenance: true
+        },
+        {
+          id: "support",
+          name: "Support Center",
+          icon: <FaLifeRing />,
+          requiredPermission: "tickets",
+          underMaintenance: true
+        }
+      ]
     },
     {
-      id: "students",
-      name: "Students Manager",
-      icon: <FaUserGraduate />,
-      theme: "student",
+      title: "OPERATIONS",
+      items: [
+        {
+          id: "analytics",
+          name: "Analytics & Reports",
+          icon: <FaChartLine />,
+          requiredPermission: "analytics",
+          underMaintenance: true
+        },
+        {
+          id: "marketing",
+          name: "Marketing",
+          icon: <FaBullhorn />,
+          requiredPermission: "banners",
+          underMaintenance: true
+        },
+        {
+          id: "sysconfig",
+          name: "System Configuration",
+          icon: <FaCog />,
+          requiredPermission: "settings",
+          underMaintenance: true
+        },
+        {
+          id: "security",
+          name: "Security & Compliance",
+          icon: <FaShieldAlt />,
+          requiredPermission: "employees"
+        },
+        {
+          id: "media",
+          name: "Media Management",
+          icon: <FaImages />,
+          requiredPermission: "media",
+          underMaintenance: true
+        }
+      ]
     },
     {
-      id: "teachers",
-      name: "Teachers Manager",
-      icon: <FaChalkboardTeacher />,
-      theme: "teacher",
-    },
-    {
-      id: "parents",
-      name: "Parents Linker",
-      icon: <FaUsers />,
-      theme: "parent",
-    },
-    {
-      id: "liveclasses",
-      name: "Live Classes",
-      icon: <FaVideo />,
-    },
-    {
-      id: "studymaterial",
-      name: "Study Library",
-      icon: <FaBook />,
-    },
-    {
-      id: "mcqtasks",
-      name: "MCQ Tasks",
-      icon: <FaClipboardList />,
-    },
-    {
-      id: "doubts",
-      name: "Doubt Center",
-      icon: <FaQuestionCircle />,
-    },
-    {
-      id: "shortvideos",
-      name: "Short Video Feed",
-      icon: <FaPlayCircle />,
-    },
+      title: "FOUNDER",
+      items: [
+        {
+          id: "founder",
+          name: "Founder Dashboard",
+          icon: <FaUserShield />,
+          requiredPermission: "founder",
+          underMaintenance: true
+        }
+      ]
+    }
   ];
 
+  const hasPermission = (permission) => {
+    if (!adminUser) return false;
+    if (adminUser.isSuperAdmin === true) return true;
+    if (!permission) return true;
+    return adminUser.permissions && adminUser.permissions.includes(permission);
+  };
+
+  const filteredMenuSections = menuSections
+    .map(section => {
+      const filteredItems = section.items
+        .map(item => {
+          if (item.subItems) {
+            const filteredSubItems = item.subItems.filter(sub => hasPermission(sub.requiredPermission));
+            return { ...item, subItems: filteredSubItems };
+          }
+          return item;
+        })
+        .filter(item => {
+          if (item.subItems) {
+            return item.subItems.length > 0;
+          }
+          return hasPermission(item.requiredPermission);
+        });
+
+      return { ...section, items: filteredItems };
+    })
+    .filter(section => section.items.length > 0);
+
+  const handleItemClick = (item) => {
+    if (item.isExpandable) {
+      if (collapsed) {
+        setCollapsed(false);
+      }
+      item.setExpanded(!item.expanded);
+    } else {
+      setActiveView(item.id);
+    }
+  };
+
+  const isSubItemActive = (subItems) => {
+    return subItems.some(sub => activeView === sub.id);
+  };
+
   return (
-    <div className="sidebar-container glass-panel">
+    <div className={`sidebar-container ${collapsed ? 'collapsed' : ''}`}>
+      {/* Sidebar Header */}
       <div className="sidebar-header">
-        <div className="logo-icon">V</div>
-        <span className="logo-text">VLM Admin</span>
+        <div className="logo-container">
+          <img src={logo} alt="VLM Logo" className="logo-img" />
+          {!collapsed && (
+            <div className="logo-text-col">
+              <span className="logo-title">VLM ACADEMY</span>
+              <span className="logo-subtitle">Admin Panel</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      <nav className="sidebar-nav">
-        {menuItems.map((item) => {
-          const isActive = activeView === item.id;
-          let themeClass = '';
-          if (isActive) {
-            if (item.theme === 'student') themeClass = 'active-student';
-            else if (item.theme === 'teacher') themeClass = 'active-teacher';
-            else if (item.theme === 'parent') themeClass = 'active-parent';
-            else themeClass = 'active-default';
-          }
+      {/* Navigation Links */}
+      <div className="sidebar-nav">
+        {filteredMenuSections.map((section, sIdx) => (
+          <div key={sIdx} className="nav-section">
+            {!collapsed && <span className="category-title">{section.title}</span>}
+            
+            <div className="section-items">
+              {section.items.map((item) => {
+                const isItemActive = activeView === item.id;
+                const isSubActive = item.subItems && isSubItemActive(item.subItems);
+                const showExpanded = item.isExpandable && item.expanded && !collapsed;
 
-          return (
-            <button
-              key={item.id}
-              onClick={() => setActiveView(item.id)}
-              className={`nav-item ${isActive ? 'active' : ''} ${themeClass}`}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              <span className="nav-label">{item.name}</span>
-            </button>
-          );
-        })}
-      </nav>
+                return (
+                  <div key={item.id} className="nav-item-group">
+                    <button
+                      onClick={() => handleItemClick(item)}
+                      className={`nav-item ${isItemActive || isSubActive ? 'active' : ''}`}
+                    >
+                      <span className="nav-icon">{item.icon}</span>
+                      {!collapsed ? (
+                        <span className="nav-label-container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', overflow: 'hidden' }}>
+                          <span className="nav-label" style={{ whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', flexGrow: 1 }}>{item.name}</span>
+                          {item.underMaintenance && (
+                            <span className="maint-badge">Dev</span>
+                          )}
+                        </span>
+                      ) : null}
+                      {item.isExpandable && !collapsed && (
+                        <span className="expand-chevron">
+                          {showExpanded ? <FaAngleDown /> : <FaAngleRight />}
+                        </span>
+                      )}
+                    </button>
 
+                    {showExpanded && (
+                      <div className="sub-menu-list">
+                        {item.subItems.map((sub) => {
+                          const isSubItemActive = activeView === sub.id;
+                          return (
+                            <button
+                              key={sub.id}
+                              onClick={() => setActiveView(sub.id)}
+                              className={`sub-nav-item ${isSubItemActive ? 'active' : ''}`}
+                            >
+                              <span className="sub-nav-icon">{sub.icon}</span>
+                              <span className="sub-nav-label">{sub.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Sidebar Footer */}
       <div className="sidebar-footer">
+        {!collapsed ? (
+          <button className="collapse-btn-bottom" onClick={() => setCollapsed(true)}>
+            <FaChevronLeft className="footer-icon" />
+            <span className="nav-label">Collapse</span>
+          </button>
+        ) : (
+          <button className="collapse-btn-bottom" onClick={() => setCollapsed(false)}>
+            <FaChevronRight className="footer-icon" />
+          </button>
+        )}
+        
         <button className="logout-btn" onClick={onLogout}>
-          <FaSignOutAlt className="nav-icon logout-icon" />
-          <span className="nav-label">Logout</span>
+          <FaSignOutAlt className="nav-icon" />
+          {!collapsed && <span className="nav-label">Logout</span>}
         </button>
       </div>
 
       <style>{`
-      .sidebar-footer {
-  margin-top: auto;
-  padding-top: 20px;
-}
-
-.logout-btn {
-  width: 100%;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
-  border: none;
-  border-radius: 12px;
-  background: transparent;
-  color: #ef4444;
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
-.logout-btn:hover {
-  background: rgba(239, 68, 68, 0.12);
-  color: #ff6b6b;
-}
-
-.logout-icon {
-  font-size: 20px;
-}
         .sidebar-container {
           position: fixed;
-          top: 15px;
-          left: 15px;
-          bottom: 15px;
-          width: calc(var(--sidebar-width) - 15px);
+          top: 0;
+          left: 0;
+          bottom: 0;
+          width: var(--sidebar-width);
+          background: #0f172a; /* Premium deep dark slate */
+          border-right: 1px solid rgba(255, 255, 255, 0.06);
           display: flex;
           flex-direction: column;
-          border-radius: 20px;
-          z-index: 50;
-          padding: 20px 10px;
-          border: 1px solid var(--panel-border);
+          z-index: 100;
+          transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+          color: #94a3b8;
+          padding: 0;
         }
 
-        @media (max-width: 1024px) {
-          .sidebar-container {
-            width: calc(var(--sidebar-collapsed-width) - 15px);
-          }
-          .logo-text, .nav-label {
-            display: none;
-          }
-          .sidebar-header, .nav-item, .logout-btn {
-            justify-content: center;
-          }
+        .sidebar-container.collapsed {
+          width: var(--sidebar-collapsed-width);
         }
 
         .sidebar-header {
+          height: var(--navbar-height);
+          display: flex;
+          align-items: center;
+          padding: 0 20px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
+
+        .logo-container {
           display: flex;
           align-items: center;
           gap: 12px;
-          padding: 10px 15px;
-          margin-bottom: 25px;
         }
 
-        .logo-icon {
-          width: 36px;
-          height: 36px;
-          border-radius: 10px;
-          background: linear-gradient(135deg, var(--student-color) 0%, var(--parent-color) 100%);
+        .logo-img {
+          width: 32px;
+          height: 32px;
+          object-fit: contain;
+        }
+
+        .logo-text-col {
           display: flex;
-          align-items: center;
-          justify-content: center;
-          font-weight: 700;
-          font-size: 18px;
-          color: white;
-          box-shadow: 0 0 15px rgba(6, 182, 212, 0.4);
+          flex-direction: column;
         }
 
-        .logo-text {
+        .logo-title {
+          font-size: 14px;
           font-weight: 700;
-          font-size: 20px;
-          letter-spacing: -0.5px;
-          background: linear-gradient(to right, #ffffff, var(--text-secondary));
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
+          color: #f8fafc;
+          letter-spacing: 0.05em;
+        }
+
+        .logo-subtitle {
+          font-size: 11px;
+          color: #64748b;
+          font-weight: 500;
         }
 
         .sidebar-nav {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
           flex-grow: 1;
           overflow-y: auto;
-          padding-right: 4px;
+          padding: 20px 10px;
+          display: flex;
+          flex-direction: column;
+          gap: 20px;
+        }
+
+        /* Custom Scrollbar for dark sidebar */
+        .sidebar-nav::-webkit-scrollbar {
+          width: 4px;
+        }
+        .sidebar-nav::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.1);
+          border-radius: 2px;
+        }
+
+        .nav-section {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .category-title {
+          font-size: 10px;
+          font-weight: 700;
+          color: #475569;
+          letter-spacing: 0.1em;
+          padding-left: 12px;
+          margin-bottom: 4px;
+        }
+
+        .section-items {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .nav-item-group {
+          display: flex;
+          flex-direction: column;
         }
 
         .nav-item {
           display: flex;
           align-items: center;
-          gap: 14px;
-          padding: 12px 16px;
-          border-radius: 12px;
+          width: 100%;
+          padding: 10px 14px;
           border: none;
           background: transparent;
-          color: var(--text-secondary);
-          font-weight: 500;
-          font-size: 14px;
+          color: #94a3b8;
+          font-size: 13.5px;
+          font-weight: 550;
+          border-radius: 8px;
           cursor: pointer;
           transition: all 0.2s ease;
+          gap: 12px;
           text-align: left;
         }
 
         .nav-item:hover {
           background: rgba(255, 255, 255, 0.04);
-          color: var(--text-primary);
+          color: #f8fafc;
+        }
+
+        .nav-item.active {
+          background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+          color: #ffffff;
+          box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
         }
 
         .nav-icon {
+          font-size: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+        }
+
+        .nav-label {
+          flex-grow: 1;
+        }
+
+        .maint-badge {
+          background: rgba(249, 115, 22, 0.1);
+          border: 1px solid rgba(249, 115, 22, 0.25);
+          color: #f97316;
+          font-size: 8px;
+          font-weight: 800;
+          text-transform: uppercase;
+          padding: 1.5px 5.5px;
+          border-radius: 4px;
+          letter-spacing: 0.5px;
+          margin-left: 6px;
+          display: inline-flex;
+          align-items: center;
+          height: fit-content;
+        }
+
+        .expand-chevron {
+          font-size: 11px;
+          display: flex;
+          align-items: center;
+          color: #64748b;
+        }
+
+        .sub-menu-list {
+          margin-top: 2px;
+          padding-left: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+          border-left: 1px solid rgba(255, 255, 255, 0.06);
+          margin-left: 22px;
+        }
+
+        .sub-nav-item {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 8px 12px;
+          border: none;
+          background: transparent;
+          color: #64748b;
+          font-size: 12.5px;
+          font-weight: 500;
+          border-radius: 6px;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-align: left;
+        }
+
+        .sub-nav-item:hover {
+          color: #f8fafc;
+          background: rgba(255, 255, 255, 0.03);
+        }
+
+        .sub-nav-item.active {
+          color: #3b82f6;
+          font-weight: 600;
+        }
+
+        .sub-nav-icon {
+          font-size: 12px;
+        }
+
+        .sidebar-footer {
+          border-top: 1px solid rgba(255, 255, 255, 0.06);
+          padding: 12px;
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+
+        .collapse-btn-bottom {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          width: 100%;
+          padding: 10px 14px;
+          background: transparent;
+          border: none;
+          color: #64748b;
+          font-size: 13.5px;
+          font-weight: 550;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.2s;
+          text-align: left;
+        }
+
+        .collapse-btn-bottom:hover {
+          background: rgba(255, 255, 255, 0.03);
+          color: #f8fafc;
+        }
+
+        .footer-icon {
+          font-size: 14px;
+          width: 20px;
           display: flex;
           align-items: center;
           justify-content: center;
         }
 
-        .active-default {
-          background: rgba(59, 130, 246, 0.12) !important;
-          color: var(--accent-blue) !important;
-          border-left: 3px solid var(--accent-blue);
-          border-radius: 0 12px 12px 0;
-          padding-left: 13px;
-        }
-
-        .active-student {
-          background: rgba(6, 182, 212, 0.12) !important;
-          color: var(--student-color) !important;
-          border-left: 3px solid var(--student-color);
-          border-radius: 0 12px 12px 0;
-          padding-left: 13px;
-        }
-
-        .active-teacher {
-          background: rgba(245, 158, 11, 0.12) !important;
-          color: var(--teacher-color) !important;
-          border-left: 3px solid var(--teacher-color);
-          border-radius: 0 12px 12px 0;
-          padding-left: 13px;
-        }
-
-        .active-parent {
-          background: rgba(236, 72, 153, 0.12) !important;
-          color: var(--parent-color) !important;
-          border-left: 3px solid var(--parent-color);
-          border-radius: 0 12px 12px 0;
-          padding-left: 13px;
-        }
-
-        .sidebar-footer {
-          border-top: 1px solid var(--panel-border);
-          padding-top: 15px;
-          margin-top: 10px;
-        }
-
         .logout-btn {
           display: flex;
           align-items: center;
-          gap: 14px;
+          gap: 12px;
           width: 100%;
-          padding: 12px 16px;
-          border-radius: 12px;
-          border: none;
+          padding: 10px 14px;
           background: transparent;
-          color: var(--error-color);
-          font-weight: 500;
-          font-size: 14px;
+          border: none;
+          color: #ef4444;
+          font-size: 13.5px;
+          font-weight: 550;
+          border-radius: 8px;
           cursor: pointer;
-          transition: all 0.2s ease;
-          opacity: 0.8;
+          transition: all 0.2s;
+          text-align: left;
         }
 
         .logout-btn:hover {
           background: rgba(239, 68, 68, 0.1);
-          opacity: 1;
         }
       `}</style>
     </div>

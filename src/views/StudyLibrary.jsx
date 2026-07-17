@@ -192,7 +192,7 @@ const StudyLibrary = () => {
     }, 100);
     
     try {
-      const result = await uploadPdf(file);
+      const result = await uploadPdf(file, selectedClass, selectedSubject);
       clearInterval(progressInterval);
       setUploadProgress(100);
       
