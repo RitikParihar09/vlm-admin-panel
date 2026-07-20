@@ -70,8 +70,9 @@ const Gamification = () => {
     maxRewardMultiplier: 3
   });
 
-  // Cooldown setting
+  // Cooldown setting (HH:MM)
   const [cooldownHours, setCooldownHours] = useState(24);
+  const [cooldownMinutes, setCooldownMinutes] = useState(0);
 
   // Edit Segment Modal State
   const [editModalOpen, setEditModalOpen] = useState(false);
@@ -169,7 +170,9 @@ const Gamification = () => {
         })));
       }
       if (spinSettings.cooldownHours !== undefined) {
-        setCooldownHours(Number(spinSettings.cooldownHours) || 2);
+        const totalHours = Number(spinSettings.cooldownHours) || 2;
+        setCooldownHours(Math.floor(totalHours));
+        setCooldownMinutes(Math.round((totalHours - Math.floor(totalHours)) * 60));
       }
     }
   }, [spinSettings]);
@@ -353,7 +356,8 @@ const Gamification = () => {
       title: s.title || '',
       message: s.message || ''
     }));
-    const success = await updateSpinSettings({ rewards: payload, cooldownHours });
+    const totalCooldownHours = cooldownHours + (cooldownMinutes / 60);
+    const success = await updateSpinSettings({ rewards: payload, cooldownHours: totalCooldownHours });
     if (success) {
       alert('Spin wheel rewards settings updated successfully!');
     }
@@ -575,11 +579,102 @@ const Gamification = () => {
   };
 
 
+  // ===== Custom Segmented Spin-Wheel SVG Icon for card =====
+  const SpinWheelIcon = ({ size = 96, className = '' }) => {
+    const iconSegments = [
+      { color: '#ffb300', label: '100' },
+      { color: '#f97316', label: '50' },
+      { color: '#3b82f6', label: 'XP' },
+      { color: '#10b981', label: 'FRZ' },
+      { color: '#ec4899', label: '%' },
+      { color: '#8b5cf6', label: '??' },
+      { color: '#06b6d4', label: 'STAR' },
+      { color: '#e11d48', label: 'GIFT' },
+    ];
+    const total = iconSegments.length;
+    const cx = 48, cy = 48, r = 44, ir = 14;
+    const sliceAngle = 360 / total;
+    const spokes = [];
+
+    for (let i = 0; i < total; i++) {
+      const startAngle = i * sliceAngle - 90;
+      const endAngle = (i + 1) * sliceAngle - 90;
+      const sRad = (startAngle * Math.PI) / 180;
+      const eRad = (endAngle * Math.PI) / 180;
+
+      const x1 = cx + r * Math.cos(sRad);
+      const y1 = cy + r * Math.sin(sRad);
+      const x2 = cx + r * Math.cos(eRad);
+      const y2 = cy + r * Math.sin(eRad);
+      const ix1 = cx + ir * Math.cos(sRad);
+      const iy1 = cy + ir * Math.sin(sRad);
+      const ix2 = cx + ir * Math.cos(eRad);
+      const iy2 = cy + ir * Math.sin(eRad);
+
+      const largeArc = sliceAngle > 180 ? 1 : 0;
+
+      const pathD = [
+        `M ${ix1} ${iy1}`,
+        `L ${x1} ${y1}`,
+        `A ${r} ${r} 0 ${largeArc} 1 ${x2} ${y2}`,
+        `L ${ix2} ${iy2}`,
+        `A ${ir} ${ir} 0 ${largeArc} 0 ${ix1} ${iy1}`,
+        'Z',
+      ].join(' ');
+
+      const midAngle = (startAngle + endAngle) / 2;
+      const mRad = (midAngle * Math.PI) / 180;
+      const labelR = (r + ir) / 2 + 2;
+      const lx = cx + labelR * Math.cos(mRad);
+      const ly = cy + labelR * Math.sin(mRad);
+
+      spokes.push(
+        <g key={i}>
+          <path d={pathD} fill={iconSegments[i].color} stroke="#ffffff" strokeWidth="0.8" />
+          <text
+            x={lx}
+            y={ly + 2}
+            textAnchor="middle"
+            fill="#ffffff"
+            fontSize="5.5"
+            fontWeight="900"
+            style={{ fontFamily: 'Inter, sans-serif', textShadow: '0 0.5px 1px rgba(0,0,0,0.3)' }}
+          >
+            {iconSegments[i].label}
+          </text>
+        </g>
+      );
+    }
+
+    return (
+      <svg
+        width={size}
+        height={size}
+        viewBox="0 0 96 96"
+        className={className}
+        style={{ filter: 'drop-shadow(0 2px 4px rgba(0,0,0,0.08))' }}
+      >
+        <circle cx="48" cy="48" r="46" fill="none" stroke="#e2e8f0" strokeWidth="1.5" />
+        {spokes}
+        <circle cx="48" cy="48" r="14" fill="#ffffff" stroke="#cbd5e1" strokeWidth="1" />
+        <circle cx="48" cy="48" r="4" fill="#6140EA" />
+        <polygon points="48,2 43,10 53,10" fill="#6140EA" stroke="#ffffff" strokeWidth="0.5" />
+      </svg>
+    );
+  };
+
   return (
     <div className="gamification-view animate-fade-in">
 
       {/* Categories Cards Row */}
       <div className="gamification-cards-grid">
+        <div className={`glass-panel g-rule-card ${activeTab === 'spin' ? 'active' : ''}`}>
+          <div className="g-card-icon spin"><SpinWheelIcon size={22} /></div>
+          <h4>Spin Wheel</h4>
+          <p>Edit spin wheel segment rewards</p>
+          <button className="g-manage-btn" onClick={() => setActiveTab('spin')}>Manage</button>
+        </div>
+
         <div className={`glass-panel g-rule-card ${activeTab === 'points' ? 'active' : ''}`}>
           <div className="g-card-icon points"><FaStar /></div>
           <h4>Points Rules</h4>
@@ -614,14 +709,6 @@ const Gamification = () => {
           <p>Manage streak rules & rewards</p>
           <button className="g-manage-btn" onClick={() => setActiveTab('streak')}>Manage</button>
         </div>
-
-        <div className={`glass-panel g-rule-card ${activeTab === 'spin' ? 'active' : ''}`}>
-          <div className="g-card-icon spin"><FaDice /></div>
-          <h4>Spin Wheel</h4>
-          <p>Edit spin wheel segment rewards</p>
-          <button className="g-manage-btn" onClick={() => setActiveTab('spin')}>Manage</button>
-        </div>
-
 
         <div className={`glass-panel g-rule-card ${activeTab === 'reward' ? 'active' : ''}`}>
           <div className="g-card-icon reward"><FaGift /></div>
@@ -776,16 +863,16 @@ const Gamification = () => {
                   </span>
                 </div>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexShrink: 0 }}>
                 <input 
                   type="number"
-                  min="1"
+                  min="0"
                   max="168"
                   value={cooldownHours}
-                  onChange={(e) => setCooldownHours(Number(e.target.value) || 2)}
+                  onChange={(e) => setCooldownHours(Math.max(0, Number(e.target.value) || 0))}
                   style={{
-                    width: '75px',
-                    padding: '8px 12px',
+                    width: '65px',
+                    padding: '8px 6px',
                     border: '1px solid #cbd5e1',
                     borderRadius: '8px',
                     fontWeight: 'bold',
@@ -794,7 +881,25 @@ const Gamification = () => {
                     background: 'white'
                   }}
                 />
-                <span style={{ fontSize: '13px', fontWeight: '700', color: '#475569' }}>Hours</span>
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>h</span>
+                <input 
+                  type="number"
+                  min="0"
+                  max="59"
+                  value={cooldownMinutes}
+                  onChange={(e) => setCooldownMinutes(Math.min(59, Math.max(0, Number(e.target.value) || 0)))}
+                  style={{
+                    width: '60px',
+                    padding: '8px 6px',
+                    border: '1px solid #cbd5e1',
+                    borderRadius: '8px',
+                    fontWeight: 'bold',
+                    color: '#0f172a',
+                    textAlign: 'center',
+                    background: 'white'
+                  }}
+                />
+                <span style={{ fontSize: '12px', fontWeight: '700', color: '#475569' }}>min</span>
               </div>
             </div>
 

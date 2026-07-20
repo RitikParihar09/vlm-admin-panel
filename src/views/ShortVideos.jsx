@@ -44,6 +44,18 @@ const ShortVideos = () => {
   // Tab State
   const [activeTab, setActiveTab] = useState('all');
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Auto-refresh interval
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadVideos();
+    }, 30000); // Auto-reload every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+
   // Modals state
   const [previewVideo, setPreviewVideo] = useState(null);
   const [rejectingVideo, setRejectingVideo] = useState(null);
@@ -160,6 +172,15 @@ const ShortVideos = () => {
     if (sortOrder === 'views') return (b.views || 0) - (a.views || 0);
     return 0;
   });
+
+  // ── Pagination derived values
+  const totalFilteredPages = Math.ceil(filteredReels.length / itemsPerPage) || 1;
+  const paginatedReels = filteredReels.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, filterStatus, filterSubject, filterClass, filterBoard, filterUploader, sortOrder, activeTab]);
 
   // ── Bulk selection derived flags & handlers (after filteredReels to avoid TDZ)
   const isAllSelected = filteredReels.length > 0 && selectedIds.length === filteredReels.length;
@@ -516,7 +537,7 @@ const ShortVideos = () => {
                 </td>
               </tr>
             ) : (
-              filteredReels.map((reel) => {
+              paginatedReels.map((reel) => {
                 const uploader = reel.uploader || {};
                 const { date, time } = formatUploadedDate(reel.createdAt);
 
@@ -691,6 +712,40 @@ const ShortVideos = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Pagination Footer */}
+      {filteredReels.length > 0 && totalFilteredPages > 1 && (
+        <div className="shorts-pagination-footer">
+          <div className="pagination-info">
+            Showing {(currentPage - 1) * itemsPerPage + 1}–{Math.min(currentPage * itemsPerPage, filteredReels.length)} of {filteredReels.length} shorts
+          </div>
+          <div className="pagination-controls">
+            <button
+              className="page-nav-btn"
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+            >
+              ‹ Prev
+            </button>
+            {Array.from({ length: totalFilteredPages }, (_, i) => i + 1).map(page => (
+              <button
+                key={page}
+                className={`page-num-btn ${currentPage === page ? 'active' : ''}`}
+                onClick={() => setCurrentPage(page)}
+              >
+                {page}
+              </button>
+            ))}
+            <button
+              className="page-nav-btn"
+              onClick={() => setCurrentPage(prev => Math.min(totalFilteredPages, prev + 1))}
+              disabled={currentPage === totalFilteredPages}
+            >
+              Next ›
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Video Preview Modal */}
       {previewVideo && (
@@ -1204,13 +1259,16 @@ const ShortVideos = () => {
           display: flex;
           align-items: center;
           gap: 6px;
-          cursor: not-allowed;
-          opacity: 0.6;
+          cursor: pointer;
+          transition: all 0.15s ease;
         }
 
         .bulk-action-pill.green { background: rgba(16, 185, 129, 0.08); color: #10b981; }
+        .bulk-action-pill.green:hover { background: rgba(16, 185, 129, 0.18); }
         .bulk-action-pill.orange { background: rgba(245, 158, 11, 0.08); color: #f59e0b; }
+        .bulk-action-pill.orange:hover { background: rgba(245, 158, 11, 0.18); }
         .bulk-action-pill.red { background: rgba(239, 68, 68, 0.08); color: #ef4444; }
+        .bulk-action-pill.red:hover { background: rgba(239, 68, 68, 0.18); }
         .bulk-action-pill.border { border: 1px solid #cbd5e1; background: #fff; color: #475569; }
 
         .export-table-btn {
@@ -1711,6 +1769,82 @@ const ShortVideos = () => {
           background: rgba(255, 255, 255, 0.15);
           padding: 2px 8px;
           border-radius: 8px;
+        }
+
+        /* Pagination Footer */
+        .shorts-pagination-footer {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 16px;
+          padding: 16px 20px;
+          background: #fff;
+          border: 1px solid #cbd5e1;
+          border-radius: 16px;
+          box-shadow: 0 4px 6px -1px rgba(0,0,0,0.02);
+        }
+
+        .pagination-info {
+          font-size: 13px;
+          font-weight: 600;
+          color: #64748b;
+        }
+
+        .pagination-controls {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .page-nav-btn {
+          border: 1px solid #cbd5e1;
+          background: #fff;
+          color: #475569;
+          font-size: 12px;
+          font-weight: 700;
+          padding: 8px 14px;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+        }
+
+        .page-nav-btn:hover:not(:disabled) {
+          background: #f8fafc;
+          border-color: #94a3b8;
+        }
+
+        .page-nav-btn:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
+
+        .page-num-btn {
+          width: 34px;
+          height: 34px;
+          border: 1px solid #e2e8f0;
+          background: #fff;
+          color: #475569;
+          font-size: 12px;
+          font-weight: 700;
+          border-radius: 8px;
+          cursor: pointer;
+          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .page-num-btn:hover {
+          background: #f1f5f9;
+          border-color: #94a3b8;
+        }
+
+        .page-num-btn.active {
+          background: #4f46e5;
+          color: #fff;
+          border-color: #4f46e5;
+          box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
         }
       `}</style>
 
