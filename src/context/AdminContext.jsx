@@ -41,6 +41,22 @@ import {
   adminUpdateBanner,
   adminDeleteBanner,
   adminReorderBanners,
+  adminGetOnboardingSlides,
+  adminCreateOnboardingSlide,
+  adminUpdateOnboardingSlide,
+  adminDeleteOnboardingSlide,
+  adminGetSettings,
+  adminUpdateSetting,
+  adminGetPlans,
+  adminCreatePlan,
+  adminUpdatePlan,
+  adminDeletePlan,
+  adminGetTrials,
+  adminGetVideos,
+  adminApproveVideo,
+  adminRejectVideo,
+  adminDeleteVideo,
+  adminUpdateStudentSubscription,
   safeAdminCall
 } from '../api/adminAuthApi';
 
@@ -63,6 +79,7 @@ const normalizeStudents = (data) => {
     grade: st.grade || st.class || st.standard || st.className,
     rewardPoints: st.wallet?.totalPoints ?? st.rewardPoints ?? st.points ?? 0,
     wallet: st.wallet || {},
+    subscription: st.subscription || {},
     vlmStudentId: st.vlmStudentId || st.vlm_id || st.studentId || undefined,
     leaderboardRank: st.leaderboardRank ?? st.rank ?? 0,
     parentIds: st.parentIds || st.parents || [],
@@ -159,6 +176,7 @@ export const AdminProvider = ({ children }) => {
   const [studyLibrary, setStudyLibrary] = useState(defaultStudyLibrary);
 
   const [spinSettings, setSpinSettings] = useState(null);
+  const [plans, setPlans] = useState([]);
   const [globalLoading, setGlobalLoading] = useState(false);
   const [globalError, setGlobalError] = useState('');
 
@@ -213,10 +231,11 @@ export const AdminProvider = ({ children }) => {
       safeAdminCall(adminGetParents),
       safeAdminCall(adminGetFinancials),
       safeAdminCall(adminGetWithdrawals),
-      safeAdminCall(adminGetResources)
+      safeAdminCall(adminGetResources),
+      safeAdminCall(adminGetPlans)
     ]);
 
-    const [rDash, rStudents, rTeachers, rParents, rFinancials, rWithdrawals, rResources] = results;
+    const [rDash, rStudents, rTeachers, rParents, rFinancials, rWithdrawals, rResources, rPlans] = results;
 
     if (!rDash.ok) setGlobalError(rDash.error?.message || 'Failed to load dashboard');
     if (rDash.ok) setDashboard(rDash.data?.data ?? rDash.data ?? null);
@@ -233,6 +252,7 @@ export const AdminProvider = ({ children }) => {
     if (rFinancials.ok) setFinancials(rFinancials.data?.data ?? rFinancials.data ?? null);
     if (rWithdrawals.ok) setWithdrawals(rWithdrawals.data?.data ?? rWithdrawals.data ?? []);
     if (rResources.ok) setResources(rResources.data?.data ?? rResources.data ?? []);
+    if (rPlans.ok) setPlans(rPlans.data?.data ?? rPlans.data ?? []);
 
     if (currentUser?.isSuperAdmin || currentUser?.permissions?.includes('employees')) {
       const rEmployees = await safeAdminCall(adminGetEmployees);
@@ -326,10 +346,13 @@ export const AdminProvider = ({ children }) => {
   };
 
 
-  const updateSpin = async (rewards) => {
-    const res = await safeAdminCall(() => adminUpdateSpinSettings(rewards));
+  const updateSpin = async (payload) => {
+    const res = await safeAdminCall(() => adminUpdateSpinSettings(payload));
     if (res.ok) {
-      setSpinSettings(res.data?.data ?? res.data ?? null);
+      setSpinSettings({
+        rewards: res.data?.data ?? [],
+        cooldownHours: res.data?.cooldownHours ?? 2
+      });
       return true;
     }
     setGlobalError(res.error?.message || 'Failed to update spin settings');
@@ -338,8 +361,14 @@ export const AdminProvider = ({ children }) => {
 
   const fetchSpin = async () => {
     const res = await safeAdminCall(() => adminGetSpinSettings());
-    if (res.ok) setSpinSettings(res.data?.data ?? res.data ?? null);
-    else setGlobalError(res.error?.message || 'Failed to load spin settings');
+    if (res.ok) {
+      setSpinSettings({
+        rewards: res.data?.data ?? [],
+        cooldownHours: res.data?.cooldownHours ?? 2
+      });
+    } else {
+      setGlobalError(res.error?.message || 'Failed to load spin settings');
+    }
   };
 
   const createResource = async (payload) => {
@@ -480,6 +509,38 @@ export const AdminProvider = ({ children }) => {
         return safeAdminCall(() => adminReorderBanners(payload));
       },
 
+      // Onboarding Slides
+      getOnboardingSlides: async () => {
+        return safeAdminCall(() => adminGetOnboardingSlides());
+      },
+      createOnboardingSlide: async (formData) => {
+        return safeAdminCall(() => adminCreateOnboardingSlide(formData));
+      },
+      updateOnboardingSlide: async (id, formData) => {
+        return safeAdminCall(() => adminUpdateOnboardingSlide(id, formData));
+      },
+      deleteOnboardingSlide: async (id) => {
+        return safeAdminCall(() => adminDeleteOnboardingSlide(id));
+      },
+
+      getSettings: async () => {
+        return safeAdminCall(() => adminGetSettings());
+      },
+      updateSetting: async (key, value) => {
+        return safeAdminCall(() => adminUpdateSetting(key, value));
+      },
+
+      plans,
+      updateStudentSubscription: async (id, payload) => {
+        const res = await safeAdminCall(() => adminUpdateStudentSubscription(id, payload));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to update student subscription');
+          return false;
+        }
+        await refreshAll();
+        return true;
+      },
+
       // Kept for UI compatibility: no-op mutations (backend write endpoints not specified in task for students/teachers/etc.)
       updateAdminUser: (u) => setAdminUser((prev) => ({ ...(prev || {}), ...(u || {}) })),
 
@@ -503,6 +564,51 @@ updateStudent: async (id, payload) => {
         }
         await refreshAll();
         return true;
+      },
+      updateStudentSubscription: async (id, payload) => {
+        const res = await safeAdminCall(() => adminUpdateStudentSubscription(id, payload));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to update subscription');
+          return false;
+        }
+        await refreshAll();
+        return true;
+      },
+      createPlan: async (payload) => {
+        const res = await safeAdminCall(() => adminCreatePlan(payload));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to create plan');
+          return false;
+        }
+        await refreshAll();
+        return true;
+      },
+      updatePlan: async (id, payload) => {
+        const res = await safeAdminCall(() => adminUpdatePlan(id, payload));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to update plan');
+          return false;
+        }
+        await refreshAll();
+        return true;
+      },
+      deletePlan: async (id) => {
+        const res = await safeAdminCall(() => adminDeletePlan(id));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to delete plan');
+          return false;
+        }
+        await refreshAll();
+        return true;
+      },
+      getTrials: async (status = 'all') => {
+        const res = await safeAdminCall(() => adminGetTrials(status));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to fetch trials list');
+          return null;
+        }
+        const payload = res.data?.data ?? res.data;
+        return Array.isArray(payload) ? payload : [];
       },
 
       deleteStudent: async (id) => {
@@ -821,8 +927,39 @@ updateStudent: async (id, payload) => {
       addMcqTask: () => {},
       deleteMcqTask: () => {},
       updateDoubt: () => {},
-      addShortVideo: () => {},
-      deleteShortVideo: () => {}
+      getShortVideos: async (status = '') => {
+        const res = await safeAdminCall(() => adminGetVideos(status));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to fetch short videos');
+          return null;
+        }
+        const payload = res.data?.data ?? res.data;
+        return Array.isArray(payload) ? payload : [];
+      },
+      approveShortVideo: async (id) => {
+        const res = await safeAdminCall(() => adminApproveVideo(id));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to approve video');
+          return false;
+        }
+        return true;
+      },
+      rejectShortVideo: async (id, reason) => {
+        const res = await safeAdminCall(() => adminRejectVideo(id, reason));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to reject video');
+          return false;
+        }
+        return true;
+      },
+      deleteShortVideo: async (id) => {
+        const res = await safeAdminCall(() => adminDeleteVideo(id));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to delete video');
+          return false;
+        }
+        return true;
+      }
     }),
     [
       adminUser,
@@ -841,7 +978,8 @@ updateStudent: async (id, payload) => {
       resources,
       studyLibrary,
       spinSettings,
-      employees
+      employees,
+      plans
     ]
   );
 

@@ -108,8 +108,8 @@ export const adminGetSpinSettings = async () => {
   return res.data;
 };
 
-export const adminUpdateSpinSettings = async (rewards) => {
-  const res = await api.post('/spin-settings', { rewards }, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+export const adminUpdateSpinSettings = async (payload) => {
+  const res = await api.post('/spin-settings', payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
   return res.data;
 };
 
@@ -259,7 +259,86 @@ export const adminDeleteBanner = async (id) => {
 };
 
 export const adminReorderBanners = async (reorderPayload) => {
-  const res = await api.put('/banners/reorder', reorderPayload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  const res = await api.put('/banners/reorder', { items: reorderPayload }, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+// Onboarding Slides API Operations
+export const adminGetOnboardingSlides = async () => {
+  const res = await api.get('/onboarding-slides', attachAuth());
+  return res.data;
+};
+
+export const adminCreateOnboardingSlide = async (formData) => {
+  const res = await api.post('/onboarding-slides', formData, attachAuth());
+  return res.data;
+};
+
+export const adminUpdateOnboardingSlide = async (id, formData) => {
+  const res = await api.put(`/onboarding-slides/${id}`, formData, attachAuth());
+  return res.data;
+};
+
+export const adminDeleteOnboardingSlide = async (id) => {
+  const res = await api.delete(`/onboarding-slides/${id}`, attachAuth());
+  return res.data;
+};
+
+// System Settings API Operations
+export const adminGetSettings = async () => {
+  const res = await api.get('/settings', attachAuth());
+  return res.data;
+};
+
+export const adminUpdateSetting = async (key, value) => {
+  const res = await api.put('/settings', { key, value }, attachAuth());
+  return res.data;
+};
+
+// Subscription Plans Management
+export const adminGetPlans = async () => {
+  const res = await api.get('/plans', attachAuth());
+  return res.data;
+};
+export const adminCreatePlan = async (payload) => {
+  const res = await api.post('/plans', payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+export const adminUpdatePlan = async (id, payload) => {
+  const res = await api.put(`/plans/${id}`, payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+export const adminDeletePlan = async (id) => {
+  const res = await api.delete(`/plans/${id}`, attachAuth());
+  return res.data;
+};
+
+export const adminGetTrials = async (status = 'all') => {
+  const res = await api.get(`/plans/trials`, attachAuth({ params: { status } }));
+  return res.data;
+};
+
+// Student Subscription Management
+export const adminUpdateStudentSubscription = async (id, payload) => {
+  const res = await api.put(`/students/${id}/subscription`, payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+// Short Videos Management
+export const adminGetVideos = async (status = '') => {
+  const res = await api.get('/videos', attachAuth({ params: { status, limit: 100 } }));
+  return res.data;
+};
+export const adminApproveVideo = async (id) => {
+  const res = await api.post(`/videos/${id}/approve`, {}, attachAuth());
+  return res.data;
+};
+export const adminRejectVideo = async (id, reason) => {
+  const res = await api.post(`/videos/${id}/reject`, { reason }, attachAuth());
+  return res.data;
+};
+export const adminDeleteVideo = async (id) => {
+  const res = await api.delete(`/videos/${id}`, attachAuth());
   return res.data;
 };
 

@@ -10,20 +10,29 @@ import {
   FaTicketAlt,
   FaUpload,
   FaTimes,
-  FaCheckCircle
+  FaCheckCircle,
+  FaEllipsisV,
+  FaEye,
+  FaEyeSlash
 } from 'react-icons/fa';
 
-const Marketing = () => {
+const Marketing = ({ defaultTab = 'promocodes' }) => {
   const {
     getBanners,
     createBanner,
     updateBanner,
     deleteBanner,
-    reorderBanners
+    reorderBanners,
+    getSettings,
+    updateSetting
   } = useAdmin();
 
   // Tab state: 'promocodes' or 'banners'
-  const [activeTab, setActiveTab] = useState('promocodes');
+  const [activeTab, setActiveTab] = useState(defaultTab);
+
+  useEffect(() => {
+    setActiveTab(defaultTab);
+  }, [defaultTab]);
 
   // Existing Promo Code state
   const [promoCode, setPromoCode] = useState('');
@@ -59,18 +68,51 @@ const Marketing = () => {
   const [bannerIsActive, setBannerIsActive] = useState(true);
   const [bannerImageFile, setBannerImageFile] = useState(null);
   const [bannerImagePreview, setBannerImagePreview] = useState('');
+  const [bgType, setBgType] = useState('gradient');
+  const [bgStartColor, setBgStartColor] = useState('#4f21db');
+  const [bgEndColor, setBgEndColor] = useState('#7e22ce');
+  const [bgSolidColor, setBgSolidColor] = useState('#4f21db');
   const [submitting, setSubmitting] = useState(false);
+
+  // Rotation and popover states
+  const [rotationTime, setRotationTime] = useState(6);
+  const [savingRotation, setSavingRotation] = useState(false);
+  const [activeActionMenuId, setActiveActionMenuId] = useState(null);
 
   const loadBanners = async () => {
     setLoadingBanners(true);
     setBannersError('');
     const res = await getBanners();
     if (res.ok) {
-      setBanners(res.data?.data || res.data || []);
+      const dataObj = res.data;
+      if (dataObj && dataObj.rotationTime !== undefined) {
+        setRotationTime(dataObj.rotationTime);
+      }
+      setBanners(dataObj?.data || dataObj || []);
     } else {
       setBannersError('Failed to fetch banners list.');
     }
+
+    const settingsRes = await getSettings();
+    if (settingsRes.ok) {
+      const allSettings = settingsRes.data?.data || settingsRes.data || [];
+      const rotSetting = allSettings.find(s => s.key === 'banner_rotation_time');
+      if (rotSetting) {
+        setRotationTime(parseInt(rotSetting.value, 10) || 6);
+      }
+    }
     setLoadingBanners(false);
+  };
+
+  const handleSaveRotation = async () => {
+    setSavingRotation(true);
+    const res = await updateSetting('banner_rotation_time', rotationTime.toString());
+    setSavingRotation(false);
+    if (res.ok) {
+      alert('Rotation interval updated successfully!');
+    } else {
+      alert(res.error?.message || 'Failed to update rotation interval.');
+    }
   };
 
   useEffect(() => {
@@ -107,6 +149,10 @@ const Marketing = () => {
     setBannerBtnText('Explore Now');
     setBannerBtnLink('/library');
     setBannerBgGradient('linear-gradient(135deg, #4f21db 0%, #7e22ce 100%)');
+    setBgType('gradient');
+    setBgStartColor('#4f21db');
+    setBgEndColor('#7e22ce');
+    setBgSolidColor('#4f21db');
     setBannerTextColor('#ffffff');
     setBannerBtnBgColor('#ffffff');
     setBannerBtnTextColor('#4f21db');
@@ -126,7 +172,25 @@ const Marketing = () => {
     setBannerDesc(banner.description || '');
     setBannerBtnText(banner.buttonText || 'Explore Now');
     setBannerBtnLink(banner.buttonLink || '/library');
-    setBannerBgGradient(banner.bgGradient || 'linear-gradient(135deg, #4f21db 0%, #7e22ce 100%)');
+    
+    const val = banner.bgGradient || 'linear-gradient(135deg, #4f21db 0%, #7e22ce 100%)';
+    setBannerBgGradient(val);
+    if (val.startsWith('#') && (val.length === 4 || val.length === 7)) {
+      setBgType('solid');
+      setBgSolidColor(val);
+    } else if (val.includes('linear-gradient')) {
+      const hexMatches = val.match(/#[0-9a-fA-F]{3,6}/g);
+      if (hexMatches && hexMatches.length >= 2) {
+        setBgType('gradient');
+        setBgStartColor(hexMatches[0]);
+        setBgEndColor(hexMatches[1]);
+      } else {
+        setBgType('custom');
+      }
+    } else {
+      setBgType('custom');
+    }
+
     setBannerTextColor(banner.textColor || '#ffffff');
     setBannerBtnBgColor(banner.buttonBgColor || '#ffffff');
     setBannerBtnTextColor(banner.buttonTextColor || '#4f21db');
@@ -156,7 +220,15 @@ const Marketing = () => {
     formData.append('description', bannerDesc);
     formData.append('buttonText', bannerBtnText);
     formData.append('buttonLink', bannerBtnLink);
-    formData.append('bgGradient', bannerBgGradient);
+
+    let finalBg = bannerBgGradient;
+    if (bgType === 'solid') {
+      finalBg = bgSolidColor;
+    } else if (bgType === 'gradient') {
+      finalBg = `linear-gradient(135deg, ${bgStartColor} 0%, ${bgEndColor} 100%)`;
+    }
+    formData.append('bgGradient', finalBg);
+
     formData.append('textColor', bannerTextColor);
     formData.append('buttonBgColor', bannerBtnBgColor);
     formData.append('buttonTextColor', bannerBtnTextColor);
@@ -225,27 +297,45 @@ const Marketing = () => {
 
   return (
     <div className="marketing-view animate-fade-in">
-      <div className="view-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <div className="view-header-row" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', gap: '20px' }}>
         <div>
-          <h2 className="view-title">Marketing & Promos</h2>
-          <p className="view-subtitle">Generate coupon codes, create dynamic graphic slides, and track referral payouts.</p>
+          <h2 className="view-title">
+            {activeTab === 'banners' ? 'Banner Ads' : 'Coupon Codes'}
+          </h2>
+          <p className="view-subtitle">
+            {activeTab === 'banners' 
+              ? 'Configure hero graphic sliders, customize colors, and manage CTA target routes.' 
+              : 'Generate discount codes, set usage limits, and track redemption metrics.'}
+          </p>
         </div>
-        
-        {/* Tab Selection Switcher */}
-        <div className="mkt-tab-switcher">
-          <button 
-            className={`mkt-tab-btn ${activeTab === 'promocodes' ? 'active' : ''}`}
-            onClick={() => setActiveTab('promocodes')}
-          >
-            <FaTicketAlt /> Coupon Codes
-          </button>
-          <button 
-            className={`mkt-tab-btn ${activeTab === 'banners' ? 'active' : ''}`}
-            onClick={() => setActiveTab('banners')}
-          >
-            <FaAd /> Banner Ads
-          </button>
-        </div>
+
+        {activeTab === 'banners' && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            {/* Compact Rotation Speed Settings */}
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#ffffff', padding: '6px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: '#475569' }}>Rotate:</span>
+              <input 
+                type="number" 
+                value={rotationTime} 
+                onChange={(e) => setRotationTime(parseInt(e.target.value) || 6)} 
+                style={{ width: '45px', padding: '4px 6px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '12px', textAlign: 'center', fontWeight: 700, color: '#1e293b' }}
+                min="1"
+              />
+              <span style={{ fontSize: '11px', fontWeight: 600, color: '#64748b' }}>sec</span>
+              <button 
+                onClick={handleSaveRotation} 
+                style={{ background: '#3b82f6', border: 'none', color: '#ffffff', fontSize: '11px', fontWeight: 700, cursor: 'pointer', padding: '4px 8px', borderRadius: '4px', transition: 'background 0.2s' }}
+                disabled={savingRotation}
+              >
+                {savingRotation ? '...' : 'Save'}
+              </button>
+            </div>
+
+            <button className="create-banner-trigger-btn" onClick={handleOpenAddModal} style={{ margin: 0 }}>
+              <FaPlus /> Create Slide Banner
+            </button>
+          </div>
+        )}
       </div>
 
       {activeTab === 'promocodes' ? (
@@ -327,16 +417,7 @@ const Marketing = () => {
         </>
       ) : (
         /* TAB 2: Custom Graphic Banners settings */
-        <div className="banners-management-panel glass-panel">
-          <div className="banners-panel-header">
-            <div>
-              <h3>Promo Slider Graphic Banners</h3>
-              <p className="panel-desc">Manage customizable hero slide banners displayed on the student mobile app homepage.</p>
-            </div>
-            <button className="create-banner-trigger-btn" onClick={handleOpenAddModal}>
-              <FaPlus /> Create Slide Banner
-            </button>
-          </div>
+        <div className="banners-management-panel glass-panel" style={{ padding: '24px' }}>
 
           {loadingBanners ? (
             <div className="diagnostics-running" style={{ padding: '60px' }}>
@@ -367,6 +448,7 @@ const Marketing = () => {
                     <th>Banner Information</th>
                     <th>Color Customization</th>
                     <th>Target Destination</th>
+                    <th>Status</th>
                     <th style={{ textAlign: 'right' }}>Actions</th>
                   </tr>
                 </thead>
@@ -440,15 +522,50 @@ const Marketing = () => {
                           </span>
                         </div>
                       </td>
-                      <td style={{ textAlign: 'right' }}>
-                        <div className="banner-action-buttons-flex">
-                          <button className="file-edit-btn-new" onClick={() => handleOpenEditModal(b)} title="Edit banner parameters">
-                            <FaEdit />
-                          </button>
-                          <button className="file-delete-btn" onClick={() => handleDeleteBanner(b._id, b.title)} title="Delete banner slide">
-                            <FaTrash />
-                          </button>
-                        </div>
+                      <td>
+                        <span className={`promo-status-badge ${b.isActive !== false ? 'active' : 'expired'}`} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                          {b.isActive !== false ? <FaEye style={{ fontSize: '10px' }} /> : <FaEyeSlash style={{ fontSize: '10px' }} />}
+                          {b.isActive !== false ? 'Visible' : 'Hidden'}
+                        </span>
+                      </td>
+                      <td style={{ textAlign: 'right', position: 'relative' }}>
+                        <button 
+                          className="file-edit-btn-new"
+                          onClick={() => setActiveActionMenuId(activeActionMenuId === b._id ? null : b._id)}
+                          style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569', padding: '6px 10px', borderRadius: '6px', cursor: 'pointer' }}
+                        >
+                          <FaEllipsisV />
+                        </button>
+                        {activeActionMenuId === b._id && (
+                          <>
+                            <div 
+                              style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
+                              onClick={() => setActiveActionMenuId(null)}
+                            />
+                            <div className="popover-action-dropdown-menu" style={{ position: 'absolute', right: '16px', top: '44px', zIndex: 999 }}>
+                              <button onClick={() => { setActiveActionMenuId(null); handleOpenEditModal(b); }} className="popover-item">
+                                <FaEdit /> Edit Parameters
+                              </button>
+                              <button 
+                                onClick={async () => { 
+                                  setActiveActionMenuId(null); 
+                                  const formData = new FormData();
+                                  formData.append('isActive', (b.isActive === false).toString());
+                                  const res = await updateBanner(b._id, formData);
+                                  if (res.ok) { loadBanners(); } else { alert('Failed to toggle status.'); }
+                                }} 
+                                className="popover-item"
+                              >
+                                {b.isActive !== false ? <FaEyeSlash /> : <FaEye />} 
+                                {b.isActive !== false ? 'Hide Slide' : 'Show Slide'}
+                              </button>
+                              <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }}></div>
+                              <button onClick={() => { setActiveActionMenuId(null); handleDeleteBanner(b._id, b.title); }} className="popover-item text-danger">
+                                <FaTrash /> Delete Slide
+                              </button>
+                            </div>
+                          </>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -462,7 +579,7 @@ const Marketing = () => {
       {/* Slide Edit & Create Modal */}
       {showModal && (
         <div className="emp-modal-overlay">
-          <div className="emp-modal-card glass-panel animate-slide" style={{ maxWidth: '650px' }}>
+          <div className="emp-modal-card glass-panel animate-slide" style={{ maxWidth: '1000px', width: '90%' }}>
             <div className="modal-header-new">
               <h3>{isEditMode ? '⚙️ Edit Banner Slide Settings' : '📢 Create New Banner Slide'}</h3>
               <button className="close-modal-btn" onClick={() => setShowModal(false)}>
@@ -470,184 +587,246 @@ const Marketing = () => {
               </button>
             </div>
 
-            <form onSubmit={handleBannerSubmit} className="modal-form-new" style={{ padding: '24px 0 0 0' }}>
-              <div className="modal-grid-2-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
-                
-                {/* Left Side fields */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                  <div className="form-group-new">
-                    <label>Banner Headline Tag</label>
-                    <input 
-                      type="text" 
-                      value={bannerTag} 
-                      onChange={(e) => setBannerTag(e.target.value)} 
-                      placeholder="e.g. NEW, OFFER, JEE 2026"
-                      className="glass-input-premium"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group-new">
-                    <label>Banner Title Headline</label>
-                    <input 
-                      type="text" 
-                      value={bannerTitle} 
-                      onChange={(e) => setBannerTitle(e.target.value)} 
-                      placeholder="e.g. Join JEE Premium Crash Course"
-                      className="glass-input-premium"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group-new">
-                    <label>Highlight Word (Optional)</label>
-                    <input 
-                      type="text" 
-                      value={bannerHighlight} 
-                      onChange={(e) => setBannerHighlight(e.target.value)} 
-                      placeholder="Word inside title to highlight yellow"
-                      className="glass-input-premium"
-                    />
-                  </div>
-
-                  <div className="form-group-new">
-                    <label>Secondary Details description</label>
-                    <textarea 
-                      value={bannerDesc} 
-                      onChange={(e) => setBannerDesc(e.target.value)} 
-                      placeholder="Describe what students get when they click this banner"
-                      className="glass-input-premium"
-                      rows={3}
-                      style={{ resize: 'none', height: '80px', fontFamily: 'inherit' }}
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group-new">
-                    <label>Call To Action Button Text</label>
-                    <input 
-                      type="text" 
-                      value={bannerBtnText} 
-                      onChange={(e) => setBannerBtnText(e.target.value)} 
-                      placeholder="e.g. Explore Now, Claim Coupon"
-                      className="glass-input-premium"
-                      required
-                    />
-                  </div>
-
-                  <div className="form-group-new">
-                    <label>CTA Target Navigation Link</label>
-                    <input 
-                      type="text" 
-                      value={bannerBtnLink} 
-                      onChange={(e) => setBannerBtnLink(e.target.value)} 
-                      placeholder="e.g. /library, /subscription"
-                      className="glass-input-premium"
-                      required
-                    />
-                  </div>
-                </div>
-
-                {/* Right Side fields */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            <form onSubmit={handleBannerSubmit} className="modal-form-new" style={{ padding: '16px 0 0 0', display: 'flex', flexDirection: 'column', maxHeight: '80vh' }}>
+              <div className="modal-scroll-body" style={{ overflowY: 'auto', maxHeight: 'calc(75vh - 100px)', paddingRight: '12px', paddingBottom: '12px' }}>
+                <div className="modal-grid-2-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
                   
-                  {/* Image Graphic Upload Zone */}
-                  <div className="form-group-new">
-                    <label>Upload Banner Graphic Image</label>
-                    <div 
-                      className={`drag-drop-zone ${bannerImagePreview ? 'has-file' : ''}`}
-                      onClick={() => document.getElementById('banner-img-file-picker').click()}
-                      style={{ padding: '20px 10px', height: '110px' }}
-                    >
+                  {/* Left Side fields */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    <div className="form-group-new">
+                      <label>Banner Title Headline (Main Heading)</label>
                       <input 
-                        type="file"
-                        id="banner-img-file-picker"
-                        accept="image/*"
-                        onChange={handleFileChange}
-                        style={{ display: 'none' }}
+                        type="text" 
+                        value={bannerTitle} 
+                        onChange={(e) => setBannerTitle(e.target.value)} 
+                        placeholder="e.g. Join JEE Premium Crash Course"
+                        className="glass-input-premium"
+                        required
                       />
-                      {bannerImagePreview ? (
-                        <img src={bannerImagePreview} alt="Preview" style={{ maxHeight: '90px', maxWidth: '100%', borderRadius: '6px', objectFit: 'contain' }} />
-                      ) : (
-                        <div className="dd-placeholder" style={{ gap: '4px' }}>
-                          <FaUpload className="dd-icon-large" style={{ fontSize: '18px', marginBottom: '2px' }} />
-                          <span className="dd-title" style={{ fontSize: '11.5px' }}>Upload Slide Graphic</span>
-                          <span className="dd-subtitle" style={{ fontSize: '9px' }}>Aspect ratio 3:1 recommended</span>
-                        </div>
-                      )}
+                    </div>
+
+                    <div className="form-group-new">
+                      <label>Highlight Word (Optional - will show in yellow color)</label>
+                      <input 
+                        type="text" 
+                        value={bannerHighlight} 
+                        onChange={(e) => setBannerHighlight(e.target.value)} 
+                        placeholder="Enter a word from the headline to highlight"
+                        className="glass-input-premium"
+                      />
+                    </div>
+
+                    <div className="form-group-new">
+                      <label>Banner Description (Subtitle Details)</label>
+                      <textarea 
+                        value={bannerDesc} 
+                        onChange={(e) => setBannerDesc(e.target.value)} 
+                        placeholder="Describe what students get when they click this banner"
+                        className="glass-input-premium"
+                        rows={3}
+                        style={{ resize: 'none', height: '65px', fontFamily: 'inherit' }}
+                        required
+                      />
+                    </div>
+
+                    {/* Headline Tag & Button Text in same row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                      <div className="form-group-new" style={{ marginBottom: 0 }}>
+                        <label>Banner Headline Tag Badge</label>
+                        <input 
+                          type="text" 
+                          value={bannerTag} 
+                          onChange={(e) => setBannerTag(e.target.value)} 
+                          placeholder="e.g. NEW, OFFER, HOT"
+                          className="glass-input-premium"
+                          required
+                        />
+                      </div>
+
+                      <div className="form-group-new" style={{ marginBottom: 0 }}>
+                        <label>Button Label Text</label>
+                        <input 
+                          type="text" 
+                          value={bannerBtnText} 
+                          onChange={(e) => setBannerBtnText(e.target.value)} 
+                          placeholder="e.g. Explore Now, Claim Coupon"
+                          className="glass-input-premium"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group-new">
+                      <label>Button Action Target Link / URL path (e.g. /library or /subscription)</label>
+                      <input 
+                        type="text" 
+                        value={bannerBtnLink} 
+                        onChange={(e) => setBannerBtnLink(e.target.value)} 
+                        placeholder="e.g. /library, /subscription, or custom URL path"
+                        className="glass-input-premium"
+                        required
+                      />
                     </div>
                   </div>
 
-                  <div className="form-group-new">
-                    <label>CSS Background Gradient/Color</label>
-                    <input 
-                      type="text" 
-                      value={bannerBgGradient} 
-                      onChange={(e) => setBannerBgGradient(e.target.value)} 
-                      placeholder="linear-gradient(...) or solid hex like #4f21db"
-                      className="glass-input-premium"
-                      required
-                    />
+                  {/* Right Side fields */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    
+                    {/* Image Graphic Upload Zone */}
+                    <div className="form-group-new">
+                      <label>Upload Banner Graphic Image</label>
+                      <div 
+                        className={`drag-drop-zone ${bannerImagePreview ? 'has-file' : ''}`}
+                        onClick={() => document.getElementById('banner-img-file-picker').click()}
+                        style={{ padding: '10px', height: '80px' }}
+                      >
+                        <input 
+                          type="file"
+                          id="banner-img-file-picker"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                          style={{ display: 'none' }}
+                        />
+                        {bannerImagePreview ? (
+                          <img src={bannerImagePreview} alt="Preview" style={{ maxHeight: '60px', maxWidth: '100%', borderRadius: '6px', objectFit: 'contain' }} />
+                        ) : (
+                          <div className="dd-placeholder" style={{ gap: '2px' }}>
+                            <FaUpload className="dd-icon-large" style={{ fontSize: '15px' }} />
+                            <span className="dd-title" style={{ fontSize: '11px', margin: 0 }}>Upload Slide Graphic</span>
+                            <span className="dd-subtitle" style={{ fontSize: '8.5px', margin: 0 }}>Aspect ratio 3:1 recommended</span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="form-group-new">
+                      <label>Background Style Type</label>
+                      <select 
+                        value={bgType} 
+                        onChange={(e) => setBgType(e.target.value)}
+                        className="glass-input-premium"
+                        style={{ width: '100%' }}
+                      >
+                        <option value="gradient">🎨 Gradient (Easy Selection)</option>
+                        <option value="solid">🖌️ Solid Color (Color Picker)</option>
+                        <option value="custom">⚙️ Custom CSS rules (Advanced)</option>
+                      </select>
+                    </div>
+
+                    {bgType === 'gradient' && (
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                        <div className="form-group-new">
+                          <label>Gradient Start Color</label>
+                          <input 
+                            type="color" 
+                            value={bgStartColor} 
+                            onChange={(e) => setBgStartColor(e.target.value)} 
+                            className="glass-input-premium"
+                            style={{ height: '36px', padding: '2px', cursor: 'pointer' }}
+                          />
+                        </div>
+                        <div className="form-group-new">
+                          <label>Gradient End Color</label>
+                          <input 
+                            type="color" 
+                            value={bgEndColor} 
+                            onChange={(e) => setBgEndColor(e.target.value)} 
+                            className="glass-input-premium"
+                            style={{ height: '36px', padding: '2px', cursor: 'pointer' }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {bgType === 'solid' && (
+                      <div className="form-group-new">
+                        <label>Select Background Color</label>
+                        <input 
+                          type="color" 
+                          value={bgSolidColor} 
+                          onChange={(e) => setBgSolidColor(e.target.value)} 
+                          className="glass-input-premium"
+                          style={{ height: '36px', padding: '2px', cursor: 'pointer' }}
+                        />
+                      </div>
+                    )}
+
+                    {bgType === 'custom' && (
+                      <div className="form-group-new">
+                        <label>CSS Background Gradient/Color String</label>
+                        <input 
+                          type="text" 
+                          value={bannerBgGradient} 
+                          onChange={(e) => setBannerBgGradient(e.target.value)} 
+                          placeholder="e.g. linear-gradient(135deg, #4f21db 0%, #7e22ce 100%)"
+                          className="glass-input-premium"
+                          required
+                        />
+                      </div>
+                    )}
+
+                    {/* Compact Color Pickers Row */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px', marginTop: '4px' }}>
+                      <div className="form-group-new" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: '9.5px' }}>Text Color</label>
+                        <input 
+                          type="color" 
+                          value={bannerTextColor} 
+                          onChange={(e) => setBannerTextColor(e.target.value)} 
+                          className="glass-input-premium"
+                          style={{ height: '36px', padding: '2px', cursor: 'pointer' }}
+                        />
+                      </div>
+
+                      <div className="form-group-new" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: '9.5px' }}>Btn Bg</label>
+                        <input 
+                          type="color" 
+                          value={bannerBtnBgColor} 
+                          onChange={(e) => setBannerBtnBgColor(e.target.value)} 
+                          className="glass-input-premium"
+                          style={{ height: '36px', padding: '2px', cursor: 'pointer' }}
+                        />
+                      </div>
+
+                      <div className="form-group-new" style={{ marginBottom: 0 }}>
+                        <label style={{ fontSize: '9.5px' }}>Btn Text</label>
+                        <input 
+                          type="color" 
+                          value={bannerBtnTextColor} 
+                          onChange={(e) => setBannerBtnTextColor(e.target.value)} 
+                          className="glass-input-premium"
+                          style={{ height: '36px', padding: '2px', cursor: 'pointer' }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Switch Checkboxes */}
+                    <div style={{ display: 'flex', gap: '20px', marginTop: '16px' }}>
+                      <label className="checkbox-toggle-wrap">
+                        <input 
+                          type="checkbox" 
+                          checked={bannerIsCoupon} 
+                          onChange={(e) => setBannerIsCoupon(e.target.checked)} 
+                        />
+                        <span>Is Coupon Slide?</span>
+                      </label>
+
+                      <label className="checkbox-toggle-wrap">
+                        <input 
+                          type="checkbox" 
+                          checked={bannerIsActive} 
+                          onChange={(e) => setBannerIsActive(e.target.checked)} 
+                        />
+                        <span>Is Active Slide?</span>
+                      </label>
+                    </div>
                   </div>
 
-                  <div className="form-group-new">
-                    <label>Text Content Color</label>
-                    <input 
-                      type="color" 
-                      value={bannerTextColor} 
-                      onChange={(e) => setBannerTextColor(e.target.value)} 
-                      className="glass-input-premium"
-                      style={{ height: '36px', padding: '2px' }}
-                    />
-                  </div>
-
-                  <div className="form-group-new">
-                    <label>Button Background Color</label>
-                    <input 
-                      type="color" 
-                      value={bannerBtnBgColor} 
-                      onChange={(e) => setBannerBtnBgColor(e.target.value)} 
-                      className="glass-input-premium"
-                      style={{ height: '36px', padding: '2px' }}
-                    />
-                  </div>
-
-                  <div className="form-group-new">
-                    <label>Button Label Text Color</label>
-                    <input 
-                      type="color" 
-                      value={bannerBtnTextColor} 
-                      onChange={(e) => setBannerBtnTextColor(e.target.value)} 
-                      className="glass-input-premium"
-                      style={{ height: '36px', padding: '2px' }}
-                    />
-                  </div>
-
-                  {/* Switch Checkboxes */}
-                  <div style={{ display: 'flex', gap: '20px', marginTop: '10px' }}>
-                    <label className="checkbox-toggle-wrap">
-                      <input 
-                        type="checkbox" 
-                        checked={bannerIsCoupon} 
-                        onChange={(e) => setBannerIsCoupon(e.target.checked)} 
-                      />
-                      <span>Is Coupon Slide?</span>
-                    </label>
-
-                    <label className="checkbox-toggle-wrap">
-                      <input 
-                        type="checkbox" 
-                        checked={bannerIsActive} 
-                        onChange={(e) => setBannerIsActive(e.target.checked)} 
-                      />
-                      <span>Is Active Slide?</span>
-                    </label>
-                  </div>
                 </div>
-
               </div>
 
-              <div className="modal-footer-new" style={{ marginTop: '24px', borderTop: '1px solid #e2e8f0', paddingTop: '16px' }}>
+              <div className="modal-footer-new" style={{ marginTop: '16px', borderTop: '1px solid #e2e8f0', paddingTop: '16px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button type="button" className="glass-button size-md secondary" onClick={() => setShowModal(false)}>
                   Cancel
                 </button>
@@ -1121,7 +1300,7 @@ const Marketing = () => {
 
         .emp-modal-card {
           width: 100%;
-          max-width: 650px;
+          max-width: 1000px;
           background: #ffffff;
           border-radius: 16px;
           border: 1px solid #cbd5e1;
@@ -1161,6 +1340,154 @@ const Marketing = () => {
 
         .close-modal-btn:hover {
           color: #0f172a;
+        }
+
+        .form-group-new {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 16px;
+          width: 100%;
+        }
+
+        .form-group-new label {
+          font-size: 11px;
+          font-weight: 700;
+          color: #475569;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .glass-input-premium {
+          background: #ffffff !important;
+          border: 1px solid #cbd5e1 !important;
+          border-radius: 8px !important;
+          padding: 10px 14px !important;
+          font-size: 13px !important;
+          font-family: inherit !important;
+          width: 100%;
+          box-sizing: border-box;
+          color: #334155 !important;
+        }
+
+        .glass-input-premium:focus {
+          border-color: #3b82f6 !important;
+          outline: none;
+          box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+        }
+
+        .glass-input-premium[type="color"] {
+          padding: 2px !important;
+          height: 38px;
+          cursor: pointer;
+        }
+
+        .drag-drop-zone {
+          border: 1.5px dashed #cbd5e1;
+          border-radius: 12px;
+          padding: 16px;
+          text-align: center;
+          background: #f8fafc;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          height: 120px;
+          box-sizing: border-box;
+        }
+
+        .drag-drop-zone:hover {
+          border-color: #3b82f6;
+          background: #f0f6ff;
+        }
+
+        .drag-drop-zone.has-file {
+          border-color: #10b981;
+          background: #ecfdf5;
+        }
+
+        .dd-placeholder {
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 4px;
+        }
+
+        .dd-icon-large {
+          font-size: 20px;
+          color: #64748b;
+        }
+
+        .dd-title {
+          font-size: 12px;
+          font-weight: 700;
+          color: #334155;
+        }
+
+        .dd-subtitle {
+          font-size: 9px;
+          color: #94a3b8;
+        }
+
+        .checkbox-toggle-wrap {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 12.5px;
+          font-weight: 700;
+          color: #475569;
+          cursor: pointer;
+        }
+
+        .checkbox-toggle-wrap input[type="checkbox"] {
+          width: 16px;
+          height: 16px;
+          cursor: pointer;
+          accent-color: #3b82f6;
+        }
+
+        .popover-action-dropdown-menu {
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          border-radius: 8px;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+          padding: 6px;
+          display: flex;
+          flex-direction: column;
+          min-width: 160px;
+          text-align: left;
+        }
+
+        .popover-item {
+          background: none;
+          border: none;
+          color: #334155;
+          font-size: 12.5px;
+          font-weight: 600;
+          padding: 8px 12px;
+          width: 100%;
+          text-align: left;
+          cursor: pointer;
+          border-radius: 6px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          transition: background 0.2s;
+        }
+
+        .popover-item:hover {
+          background: #f1f5f9;
+        }
+
+        .popover-item.text-danger {
+          color: #ef4444;
+        }
+
+        .popover-item.text-danger:hover {
+          background: #fef2f2;
         }
       `}</style>
     </div>

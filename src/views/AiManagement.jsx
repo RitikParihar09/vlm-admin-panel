@@ -15,8 +15,70 @@ import {
   FaDatabase,
   FaArrowLeft,
   FaEye,
-  FaEyeSlash
+  FaEyeSlash,
+  FaCalculator,
+  FaInfoCircle
 } from 'react-icons/fa';
+
+/* ── Reusable cost calculator widget ───────────────────────────────────────── */
+const CostCalculator = ({ fields, compute, pricing, inputs, setInputs }) => {
+  // Merge defaults into current inputs
+  const vals = {};
+  fields.forEach(f => { vals[f.key] = inputs[f.key] !== undefined ? inputs[f.key] : f.defaultVal; });
+
+  const result = compute(vals);
+
+  return (
+    <div style={{ background: '#f8fafc', borderRadius: '12px', padding: '16px', border: '1px solid #e2e8f0' }}>
+      {/* Input rows */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '16px' }}>
+        {fields.map(f => (
+          <div key={f.key} style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <label style={{ flex: 1, fontSize: '12px', fontWeight: '600', color: '#475569', minWidth: '180px' }}>{f.label}</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <input
+                type="number"
+                min="0"
+                step={f.step || 1}
+                value={vals[f.key]}
+                onChange={e => setInputs(prev => ({ ...prev, [f.key]: parseFloat(e.target.value) || 0 }))}
+                style={{
+                  width: '100px', padding: '6px 10px', borderRadius: '8px',
+                  border: '1.5px solid #e2e8f0', fontSize: '13px', fontWeight: '700',
+                  color: '#1e293b', outline: 'none', textAlign: 'right',
+                  background: '#fff', transition: 'border-color 0.15s'
+                }}
+                onFocus={e => e.target.style.borderColor = '#3b82f6'}
+                onBlur={e => e.target.style.borderColor = '#e2e8f0'}
+              />
+              <span style={{ fontSize: '11px', color: '#94a3b8', minWidth: '40px' }}>{f.unit}</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Result */}
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '12px 14px', borderRadius: '10px',
+        background: 'linear-gradient(135deg, #1e293b, #334155)', color: '#fff'
+      }}>
+        <div>
+          <div style={{ fontSize: '10px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '4px' }}>Estimated Cost</div>
+          <div style={{ fontSize: '22px', fontWeight: '900', lineHeight: 1 }}>{result.primary}</div>
+          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '4px' }}>{result.secondary}</div>
+        </div>
+        <FaCalculator style={{ fontSize: '28px', color: '#334155', opacity: 0.4 }} />
+      </div>
+
+      {/* Pricing footnote */}
+      <div style={{ fontSize: '10px', color: '#94a3b8', marginTop: '10px', lineHeight: '1.5', display: 'flex', alignItems: 'flex-start', gap: '5px' }}>
+        <FaInfoCircle style={{ marginTop: '1px', flexShrink: 0 }} />
+        {pricing}
+      </div>
+    </div>
+  );
+};
 
 const AiManagement = () => {
   const {
@@ -36,6 +98,7 @@ const AiManagement = () => {
   const [isTesting, setIsTesting] = useState(false);
   const [testResult, setTestResult] = useState(null);
   const [showSecrets, setShowSecrets] = useState({});
+  const [calcInputs, setCalcInputs] = useState({});
 
   const loadIntegrations = async () => {
     setLoadingList(true);
@@ -397,6 +460,119 @@ const AiManagement = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* ── Cost Breakdown & Calculator ── */}
+            <div className="glass-panel">
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                <FaCalculator style={{ fontSize: '13.5px', color: '#f59e0b' }} /> Cost Breakdown & Calculator
+              </h3>
+              <p className="panel-desc">Actual usage from your database this month. Adjust the fields below to estimate future costs.</p>
+
+              {selectedProvider.cost ? (
+                <>
+                  {/* Actual this-month cost tile */}
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                    padding: '16px 18px', borderRadius: '14px', marginBottom: '20px',
+                    background: 'linear-gradient(135deg, #f0fdf4, #eff6ff)',
+                    border: '1px solid #d1fae5'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '11px', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.5px', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        Actual Cost This Month
+                        <span style={{
+                          fontSize: '9px', padding: '2px 7px', borderRadius: '20px', fontWeight: '800',
+                          background: selectedProvider.cost.source === 'real' ? 'rgba(16,185,129,0.12)' : 'rgba(139,92,246,0.12)',
+                          color: selectedProvider.cost.source === 'real' ? '#10b981' : '#8b5cf6'
+                        }}>
+                          {selectedProvider.cost.source === 'real' ? '● FROM DB' : '~ ESTIMATED'}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '30px', fontWeight: '900', color: '#1e293b', lineHeight: 1 }}>{selectedProvider.cost.thisMonth}</div>
+                      <div style={{ fontSize: '11px', color: '#64748b', marginTop: '6px' }}>{selectedProvider.cost.breakdown}</div>
+                    </div>
+                    <FaInfoCircle style={{ fontSize: '26px', color: '#cbd5e1' }} />
+                  </div>
+
+                  {/* Calculator section */}
+                  <div style={{ fontSize: '11px', fontWeight: '800', color: '#475569', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <FaCalculator style={{ color: '#f59e0b' }} /> Custom Cost Calculator
+                  </div>
+
+                  {selectedProvider.key === 'integration_msg91_sms' && (
+                    <CostCalculator
+                      inputs={calcInputs} setInputs={setCalcInputs}
+                      fields={[
+                        { key: 'otps', label: 'OTPs sent / month', defaultVal: 100, unit: 'OTPs' },
+                        { key: 'pricePerSms', label: 'Price per SMS (₹)', defaultVal: 0.18, unit: '₹', step: 0.01 }
+                      ]}
+                      compute={v => {
+                        const cost = (v.otps || 0) * (v.pricePerSms || 0.18);
+                        return { primary: `₹${cost.toFixed(2)}`, secondary: `≈ $${(cost / 83).toFixed(3)}` };
+                      }}
+                      pricing="₹0.18 / SMS · DLT India transactional route · Varies by plan"
+                    />
+                  )}
+
+                  {selectedProvider.key === 'integration_gemini_ai' && (
+                    <CostCalculator
+                      inputs={calcInputs} setInputs={setCalcInputs}
+                      fields={[
+                        { key: 'messages', label: 'AI messages / month', defaultVal: 500, unit: 'msgs' },
+                        { key: 'tokensPerMsg', label: 'Avg tokens per message', defaultVal: 400, unit: 'tokens' },
+                        { key: 'pricePerM', label: 'Price per 1M tokens ($)', defaultVal: 0.10, unit: '$', step: 0.001 }
+                      ]}
+                      compute={v => {
+                        const tokens = (v.messages || 0) * (v.tokensPerMsg || 400);
+                        const cost = (tokens / 1_000_000) * (v.pricePerM || 0.10);
+                        return { primary: `$${cost.toFixed(4)}`, secondary: `≈ ₹${(cost * 83).toFixed(2)}` };
+                      }}
+                      pricing="$0.075/1M input · $0.30/1M output · gemini-3.1-flash-lite"
+                    />
+                  )}
+
+                  {selectedProvider.key === 'integration_agora_rtc' && (
+                    <CostCalculator
+                      inputs={calcInputs} setInputs={setCalcInputs}
+                      fields={[
+                        { key: 'sessions', label: 'Live sessions / month', defaultVal: 20, unit: 'sessions' },
+                        { key: 'avgDuration', label: 'Avg session duration (min)', defaultVal: 45, unit: 'min' },
+                        { key: 'pricePerK', label: 'Price per 1000 min ($)', defaultVal: 3.99, unit: '$', step: 0.01 }
+                      ]}
+                      compute={v => {
+                        const mins = (v.sessions || 0) * (v.avgDuration || 45);
+                        const cost = (mins / 1000) * (v.pricePerK || 3.99);
+                        return { primary: `$${cost.toFixed(3)}`, secondary: `≈ ₹${(cost * 83).toFixed(2)} · ${mins} total min` };
+                      }}
+                      pricing="$3.99/1000 min HD video · First 10,000 min/month free"
+                    />
+                  )}
+
+                  {selectedProvider.key === 'integration_cloudflare_r2' && (
+                    <CostCalculator
+                      inputs={calcInputs} setInputs={setCalcInputs}
+                      fields={[
+                        { key: 'storageGB', label: 'Storage used (GB)', defaultVal: 1, unit: 'GB', step: 0.1 },
+                        { key: 'writesK', label: 'Write ops (thousands)', defaultVal: 1, unit: 'K', step: 0.1 },
+                        { key: 'readsK', label: 'Read ops (thousands)', defaultVal: 10, unit: 'K' }
+                      ]}
+                      compute={v => {
+                        const storage = (v.storageGB || 0) * 0.015;
+                        const writes = ((v.writesK || 0) * 1000 / 1_000_000) * 0.36;
+                        const reads = ((v.readsK || 0) * 1000 / 1_000_000) * 0.036;
+                        const cost = storage + writes + reads;
+                        return { primary: `$${cost.toFixed(5)}`, secondary: `≈ ₹${(cost * 83).toFixed(3)} (storage + ops, free egress)` };
+                      }}
+                      pricing="$0.015/GB-month · $0.36/M writes · $0.036/M reads · Free egress"
+                    />
+                  )}
+                </>
+              ) : (
+                <div style={{ color: '#94a3b8', fontSize: '13px', padding: '20px 0', textAlign: 'center' }}>
+                  Cost data not available for this integration.
+                </div>
+              )}
             </div>
           </div>
         </div>

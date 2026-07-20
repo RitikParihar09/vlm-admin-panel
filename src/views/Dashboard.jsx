@@ -35,7 +35,7 @@ const Dashboard = ({ setActiveView }) => {
   };
 
   const dynamicStudents = students.length;
-  const dynamicTeachers = teachers.filter(t => t.status === 'active').length || teachers.length;
+  const dynamicTeachers = teachers.length;
   const dynamicParents = parents.length;
   const activeLiveCount = liveClasses.filter(c => c.status === 'Live').length;
 
@@ -50,7 +50,7 @@ const Dashboard = ({ setActiveView }) => {
       view: 'students'
     },
     {
-      title: 'Active Teachers',
+      title: 'Total Teachers',
       value: dynamicTeachers.toLocaleString(),
       change: '↑ 8.7%',
       sub: 'vs last 30 days',

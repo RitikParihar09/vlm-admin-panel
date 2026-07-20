@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import {
   FaTachometerAlt,
@@ -26,13 +26,29 @@ import {
   FaChevronRight,
   FaAngleDown,
   FaAngleRight,
-  FaLink
+  FaLink,
+  FaTicketAlt,
+  FaAd
 } from "react-icons/fa";
 import logo from '../assets/logo.png';
 
 const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed }) => {
   const { adminUser } = useAdmin();
   const [userMenuExpanded, setUserMenuExpanded] = useState(false);
+  const [marketingMenuExpanded, setMarketingMenuExpanded] = useState(false);
+  const [subscriptionMenuExpanded, setSubscriptionMenuExpanded] = useState(false);
+
+  useEffect(() => {
+    if (activeView === 'students' || activeView === 'teachers' || activeView === 'parents') {
+      setUserMenuExpanded(true);
+    }
+    if (activeView === 'promocodes' || activeView === 'banners') {
+      setMarketingMenuExpanded(true);
+    }
+    if (['subscription', 'sub-plans', 'sub-trials', 'sub-upgrades', 'sub-list', 'sub-renewals', 'sub-expiring', 'sub-billing', 'sub-gst'].includes(activeView)) {
+      setSubscriptionMenuExpanded(true);
+    }
+  }, [activeView]);
 
   const menuSections = [
     {
@@ -60,6 +76,12 @@ const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed 
           id: "studymaterial",
           name: "Content Management",
           icon: <FaBook />,
+          requiredPermission: "study-materials"
+        },
+        {
+          id: "shortvideos",
+          name: "Shorts Management",
+          icon: <FaVideo />,
           requiredPermission: "study-materials"
         },
         {
@@ -103,10 +125,22 @@ const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed 
         },
         {
           id: "subscription",
-          name: "Subscription & Billing",
+          name: "Subscription Management",
           icon: <FaCreditCard />,
+          isExpandable: true,
+          expanded: subscriptionMenuExpanded,
+          setExpanded: setSubscriptionMenuExpanded,
           requiredPermission: "financials",
-          underMaintenance: true
+          subItems: [
+            { id: "sub-plans", name: "Subscription Plans", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "financials" },
+            { id: "sub-trials", name: "Trial Management", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "financials" },
+            { id: "sub-upgrades", name: "Plan Upgrade", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "financials" },
+            { id: "sub-list", name: "Subscriptions", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "financials" },
+            { id: "sub-renewals", name: "Renewals", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "financials" },
+            { id: "sub-expiring", name: "Expiring Soon", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "financials" },
+            { id: "sub-billing", name: "Billing History", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "financials" },
+            { id: "sub-gst", name: "GST Invoices", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "financials" }
+          ]
         },
         {
           id: "wallet",
@@ -138,8 +172,14 @@ const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed 
           id: "marketing",
           name: "Marketing",
           icon: <FaBullhorn />,
-          requiredPermission: "banners",
-          underMaintenance: true
+          isExpandable: true,
+          expanded: marketingMenuExpanded,
+          setExpanded: setMarketingMenuExpanded,
+          subItems: [
+            { id: "banners", name: "Banner Ads", icon: <FaAd />, requiredPermission: "banners" },
+            { id: "onboarding", name: "Onboarding Slides", icon: <FaChalkboardTeacher />, requiredPermission: "onboarding" },
+            { id: "promocodes", name: "Coupon Codes", icon: <FaTicketAlt />, requiredPermission: "banners" }
+          ]
         },
         {
           id: "sysconfig",
@@ -294,19 +334,17 @@ const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed 
         ))}
       </div>
 
+      {/* Floating Edge Collapse Button in the Vertical Middle */}
+      <button 
+        className="sidebar-collapse-edge-btn" 
+        onClick={() => setCollapsed(!collapsed)}
+        title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+      >
+        {collapsed ? <FaChevronRight style={{ fontSize: '9px' }} /> : <FaChevronLeft style={{ fontSize: '9px' }} />}
+      </button>
+
       {/* Sidebar Footer */}
       <div className="sidebar-footer">
-        {!collapsed ? (
-          <button className="collapse-btn-bottom" onClick={() => setCollapsed(true)}>
-            <FaChevronLeft className="footer-icon" />
-            <span className="nav-label">Collapse</span>
-          </button>
-        ) : (
-          <button className="collapse-btn-bottom" onClick={() => setCollapsed(false)}>
-            <FaChevronRight className="footer-icon" />
-          </button>
-        )}
-        
         <button className="logout-btn" onClick={onLogout}>
           <FaSignOutAlt className="nav-icon" />
           {!collapsed && <span className="nav-label">Logout</span>}
@@ -576,6 +614,34 @@ const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed 
 
         .logout-btn:hover {
           background: rgba(239, 68, 68, 0.1);
+        }
+
+        .sidebar-collapse-edge-btn {
+          position: absolute;
+          top: 50%;
+          right: -12px;
+          transform: translateY(-50%);
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background: #0f172a;
+          border: 1px solid rgba(255, 255, 255, 0.15);
+          color: #f8fafc;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          z-index: 101;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.25);
+          transition: all 0.2s ease;
+          padding: 0;
+        }
+
+        .sidebar-collapse-edge-btn:hover {
+          background: #1e293b;
+          color: #3b82f6;
+          border-color: #3b82f6;
+          transform: translateY(-50%) scale(1.1);
         }
       `}</style>
     </div>

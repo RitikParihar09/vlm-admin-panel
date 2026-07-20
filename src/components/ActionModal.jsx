@@ -40,10 +40,10 @@ const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 
           </div>
 
           <div className="modal-footer">
-            <button type="button" className="glass-button secondary" onClick={onClose}>
+            <button type="button" className="modal-btn secondary" onClick={onClose}>
               Cancel
             </button>
-            <button type="submit" className="glass-button">
+            <button type="submit" className="modal-btn primary">
               {submitText}
             </button>
           </div>
@@ -57,24 +57,25 @@ const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 
           left: 0;
           right: 0;
           bottom: 0;
-          background: rgba(4, 7, 12, 0.75);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+          background: rgba(4, 7, 12, 0.6);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 100;
+          z-index: 1000;
           padding: 20px;
         }
 
         .modal-content {
           width: 100%;
-          max-width: 540px;
-          border-radius: 20px;
+          max-width: 580px;
+          border-radius: 24px;
           border: 1px solid var(--panel-border);
           overflow: hidden;
+          background: #ffffff;
           animation: modalFadeIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+          box-shadow: 0 20px 50px rgba(0, 0, 0, 0.15);
         }
 
         .modal-header {
@@ -87,7 +88,7 @@ const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 
 
         .modal-header h3 {
           font-size: 18px;
-          font-weight: 600;
+          font-weight: 700;
           color: var(--text-primary);
         }
 
@@ -105,13 +106,13 @@ const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 
         }
 
         .modal-close-btn:hover {
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(0, 0, 0, 0.05);
           color: var(--text-primary);
         }
 
         .modal-body {
           padding: 24px;
-          max-height: 70vh;
+          max-height: 75vh;
           overflow-y: auto;
         }
 
@@ -121,7 +122,43 @@ const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 
           display: flex;
           justify-content: flex-end;
           gap: 12px;
-          background: rgba(10, 15, 24, 0.4);
+          background: #f8fafc;
+        }
+
+        .modal-btn {
+          padding: 10px 22px;
+          border-radius: 10px;
+          font-size: 14px;
+          font-weight: 700;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          outline: none;
+        }
+
+        .modal-btn.primary {
+          background: linear-gradient(135deg, #6140EA 0%, #7c3aed 100%);
+          color: #ffffff;
+          border: none;
+          box-shadow: 0 4px 12px rgba(97, 64, 234, 0.25);
+        }
+
+        .modal-btn.primary:hover {
+          transform: translateY(-1px);
+          box-shadow: 0 6px 16px rgba(97, 64, 234, 0.35);
+        }
+
+        .modal-btn.secondary {
+          background: #ffffff;
+          border: 1px solid #cbd5e1;
+          color: #475569;
+        }
+
+        .modal-btn.secondary:hover {
+          background: #f1f5f9;
+          border-color: #94a3b8;
         }
       `}</style>
     </div>

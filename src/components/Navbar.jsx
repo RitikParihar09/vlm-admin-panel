@@ -29,7 +29,16 @@ const Navbar = ({ activeView, setActiveView, sidebarCollapsed, setSidebarCollaps
       case 'aimanager': return 'AI Management';
       case 'gamification': return 'Gamification Controls';
       case 'communication': return 'Communication Desk';
-      case 'subscription': return 'Subscription & Billing';
+      case 'subscription':
+      case 'sub-plans':
+      case 'sub-trials':
+      case 'sub-upgrades':
+      case 'sub-list':
+      case 'sub-renewals':
+      case 'sub-expiring':
+      case 'sub-billing':
+      case 'sub-gst':
+        return 'Subscription Management';
       case 'wallet': return 'Wallet & Rewards';
       case 'support': return 'Support Center';
       case 'analytics': return 'Analytics & Reports';

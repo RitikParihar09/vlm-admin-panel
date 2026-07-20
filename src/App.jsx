@@ -24,6 +24,7 @@ import WalletRewards from './views/WalletRewards';
 import SupportCenter from './views/SupportCenter';
 import AnalyticsReports from './views/AnalyticsReports';
 import Marketing from './views/Marketing';
+import OnboardingSlides from './views/OnboardingSlides';
 import SystemConfig from './views/SystemConfig';
 import SecurityCompliance from './views/SecurityCompliance';
 import MediaManagement from './views/MediaManagement';
@@ -57,6 +58,14 @@ function AppContent() {
     gamification: 'gamification',
     communication: 'communication',
     subscription: 'financials',
+    'sub-plans': 'financials',
+    'sub-trials': 'financials',
+    'sub-upgrades': 'financials',
+    'sub-list': 'financials',
+    'sub-renewals': 'financials',
+    'sub-expiring': 'financials',
+    'sub-billing': 'financials',
+    'sub-gst': 'financials',
     wallet: 'wallet',
     support: 'tickets',
     analytics: 'analytics',
@@ -105,11 +114,23 @@ function AppContent() {
       case 'aimanager': return <AiManagement />;
       case 'gamification': return <Gamification />;
       case 'communication': return <Communication />;
-      case 'subscription': return <SubscriptionBilling />;
+      case 'subscription':
+      case 'sub-plans':
+      case 'sub-trials':
+      case 'sub-upgrades':
+      case 'sub-list':
+      case 'sub-renewals':
+      case 'sub-expiring':
+      case 'sub-billing':
+      case 'sub-gst':
+        return <SubscriptionBilling activeView={activeView} setActiveView={setActiveView} />;
       case 'wallet': return <WalletRewards />;
       case 'support': return <SupportCenter />;
       case 'analytics': return <AnalyticsReports />;
-      case 'marketing': return <Marketing />;
+      case 'marketing':
+      case 'promocodes': return <Marketing defaultTab="promocodes" />;
+      case 'banners': return <Marketing defaultTab="banners" />;
+      case 'onboarding': return <OnboardingSlides />;
       case 'sysconfig': return <SystemConfig />;
       case 'security': return <SecurityCompliance />;
       case 'media': return <MediaManagement />;
