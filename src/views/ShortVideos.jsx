@@ -28,7 +28,7 @@ import {
 } from 'react-icons/fa';
 
 const ShortVideos = () => {
-  const { getShortVideos, approveShortVideo, rejectShortVideo, deleteShortVideo } = useAdmin();
+  const { getShortVideos, approveShortVideo, rejectShortVideo, deleteShortVideo, updateShortVideo } = useAdmin();
   const [reels, setReels] = useState([]);
   const [loading, setLoading] = useState(false);
 
@@ -60,6 +60,14 @@ const ShortVideos = () => {
   const [previewVideo, setPreviewVideo] = useState(null);
   const [rejectingVideo, setRejectingVideo] = useState(null);
   const [rejectionReason, setRejectionReason] = useState('');
+
+  // Edit metrics modal state
+  const [editingVideo, setEditingVideo] = useState(null);
+  const [editLikes, setEditLikes] = useState(0);
+  const [editViews, setEditViews] = useState(0);
+  const [editShares, setEditShares] = useState(0);
+  const [editComments, setEditComments] = useState([]);
+  const [newCommentText, setNewCommentText] = useState('');
 
   // Custom confirm modal state
   const [confirmModal, setConfirmModal] = useState(null);
@@ -103,6 +111,38 @@ const ShortVideos = () => {
     if (window.confirm('Are you sure you want to delete this video permanently?')) {
       const ok = await deleteShortVideo(id);
       if (ok) loadVideos();
+    }
+  };
+
+  const handleOpenEditMetrics = (reel) => {
+    setEditingVideo(reel);
+    setEditLikes(reel.likes || 0);
+    setEditViews(reel.views || 0);
+    setEditShares(reel.shares || 0);
+    setEditComments(reel.comments || []);
+    setNewCommentText('');
+  };
+
+  const handleAddComment = () => {
+    if (!newCommentText.trim()) return;
+    const newComment = {
+      text: newCommentText,
+      createdAt: new Date().toISOString()
+    };
+    setEditComments([...editComments, newComment]);
+    setNewCommentText('');
+  };
+
+  const handleSaveMetrics = async () => {
+    const ok = await updateShortVideo(editingVideo._id, {
+      likes: Number(editLikes),
+      views: Number(editViews),
+      shares: Number(editShares),
+      comments: editComments
+    });
+    if (ok) {
+      setEditingVideo(null);
+      loadVideos();
     }
   };
 
@@ -670,6 +710,13 @@ const ShortVideos = () => {
                               <FaTimes style={{ fontSize: '9px' }} /> Reject
                             </button>
                             <button 
+                              className="text-action-btn edit-metrics" 
+                              onClick={() => handleOpenEditMetrics(reel)}
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', border: '1px solid #8b5cf6', background: 'rgba(139, 92, 246, 0.06)', color: '#8b5cf6', padding: '5px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                            >
+                              <FaEdit style={{ fontSize: '9px' }} /> Edit Metrics
+                            </button>
+                            <button 
                               className="text-action-btn preview" 
                               onClick={() => setPreviewVideo(reel)}
                               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', border: '1px solid #3b82f6', background: 'rgba(59, 130, 246, 0.06)', color: '#3b82f6', padding: '5px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s ease' }}
@@ -686,6 +733,13 @@ const ShortVideos = () => {
                           </>
                         ) : (
                           <>
+                            <button 
+                              className="text-action-btn edit-metrics" 
+                              onClick={() => handleOpenEditMetrics(reel)}
+                              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', border: '1px solid #8b5cf6', background: 'rgba(139, 92, 246, 0.06)', color: '#8b5cf6', padding: '5px 10px', borderRadius: '8px', fontSize: '11px', fontWeight: '700', cursor: 'pointer', transition: 'all 0.15s ease' }}
+                            >
+                              <FaEdit style={{ fontSize: '9px' }} /> Edit Metrics
+                            </button>
                             <button 
                               className="text-action-btn preview" 
                               onClick={() => setPreviewVideo(reel)}
@@ -846,6 +900,158 @@ const ShortVideos = () => {
             <div className="side-panel-footer" style={{ marginTop: '20px' }}>
               <button className="cancel-side-panel-btn" onClick={() => setRejectingVideo(null)}>Cancel</button>
               <button className="save-side-panel-btn" onClick={handleRejectSubmit} style={{ background: '#ef4444' }}>Reject Submission</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Metrics Modal */}
+      {editingVideo && (
+        <div className="premium-modal-overlay" onClick={() => setEditingVideo(null)}>
+          <div className="premium-modal-content animate-zoom-in" style={{ maxWidth: '500px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
+            <div className="side-panel-header">
+              <h3>Edit Video Stats & Comments</h3>
+              <button className="close-panel-btn" onClick={() => setEditingVideo(null)}><FaTimes /></button>
+            </div>
+            <div className="side-panel-body" style={{ maxHeight: '70vh', overflowY: 'auto', paddingRight: '4px' }}>
+              <p style={{ fontSize: '12px', color: '#64748b', marginBottom: '16px', lineHeight: '1.4' }}>
+                Modify stats or manage user comments for <strong>"{editingVideo.title}"</strong>.
+              </p>
+
+              {/* Metrics Grid */}
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px', marginBottom: '20px' }}>
+                <div className="form-group-side" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Views Count</label>
+                  <input 
+                    type="number" 
+                    value={editViews}
+                    onChange={(e) => setEditViews(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="side-input"
+                    style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div className="form-group-side" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Likes Count</label>
+                  <input 
+                    type="number" 
+                    value={editLikes}
+                    onChange={(e) => setEditLikes(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="side-input"
+                    style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+                <div className="form-group-side" style={{ marginBottom: 0 }}>
+                  <label style={{ fontSize: '11px', fontWeight: '700', color: '#475569', display: 'block', marginBottom: '6px' }}>Shares Count</label>
+                  <input 
+                    type="number" 
+                    value={editShares}
+                    onChange={(e) => setEditShares(Math.max(0, parseInt(e.target.value) || 0))}
+                    className="side-input"
+                    style={{ padding: '8px 12px', fontSize: '13px', borderRadius: '8px', border: '1px solid #cbd5e1', width: '100%', boxSizing: 'border-box' }}
+                  />
+                </div>
+              </div>
+
+              {/* Comments Section */}
+              <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '16px', marginTop: '16px' }}>
+                <h4 style={{ fontSize: '13px', fontWeight: '800', color: '#1e293b', marginBottom: '12px' }}>
+                  Manage Comments ({editComments.length})
+                </h4>
+
+                {/* Comment List */}
+                <div style={{ 
+                  maxHeight: '200px', 
+                  overflowY: 'auto', 
+                  border: '1px solid #e2e8f0', 
+                  borderRadius: '10px', 
+                  padding: '8px', 
+                  background: '#f8fafc',
+                  marginBottom: '16px',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '8px'
+                }}>
+                  {editComments.length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '12px', padding: '20px 0' }}>No comments on this video.</div>
+                  ) : (
+                    editComments.map((comment, index) => (
+                      <div key={index} style={{ 
+                        display: 'flex', 
+                        justifyContent: 'space-between', 
+                        alignItems: 'flex-start', 
+                        background: '#fff', 
+                        padding: '8px 10px', 
+                        borderRadius: '8px',
+                        border: '1px solid #f1f5f9',
+                        gap: '8px'
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '3px' }}>
+                            <span style={{ fontSize: '10px', fontWeight: '800', color: '#4f46e5' }}>
+                              {comment.user?.name || comment.user?.username || 'User'}
+                            </span>
+                            <span style={{ fontSize: '9px', color: '#94a3b8' }}>
+                              {comment.createdAt ? new Date(comment.createdAt).toLocaleDateString() : 'Just now'}
+                            </span>
+                          </div>
+                          <p style={{ fontSize: '12px', color: '#334155', margin: 0, lineHeight: '1.4', textAlign: 'left' }}>
+                            {comment.text}
+                          </p>
+                        </div>
+                        <button 
+                          onClick={() => setEditComments(editComments.filter((_, i) => i !== index))}
+                          style={{ border: 'none', background: 'transparent', color: '#ef4444', cursor: 'pointer', padding: '4px', fontSize: '12px' }}
+                        >
+                          <FaTrash />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Add Comment Row */}
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <input 
+                    type="text"
+                    value={newCommentText}
+                    onChange={(e) => setNewCommentText(e.target.value)}
+                    placeholder="Type a new comment..."
+                    style={{ 
+                      flex: 1, 
+                      padding: '8px 12px', 
+                      fontSize: '12px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1', 
+                      outline: 'none'
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleAddComment();
+                      }
+                    }}
+                  />
+                  <button 
+                    onClick={handleAddComment}
+                    style={{ 
+                      padding: '8px 14px', 
+                      background: '#4f46e5', 
+                      color: '#fff', 
+                      border: 'none', 
+                      borderRadius: '8px', 
+                      fontSize: '12px', 
+                      fontWeight: '700', 
+                      cursor: 'pointer' 
+                    }}
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div className="side-panel-footer" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+              <button className="cancel-side-panel-btn" style={{ flex: 1 }} onClick={() => setEditingVideo(null)}>Cancel</button>
+              <button className="save-side-panel-btn" style={{ flex: 1, background: '#8b5cf6' }} onClick={handleSaveMetrics}>Save Changes</button>
             </div>
           </div>
         </div>

@@ -341,6 +341,33 @@ export const adminDeleteVideo = async (id) => {
   const res = await api.delete(`/videos/${id}`, attachAuth());
   return res.data;
 };
+export const adminUpdateVideo = async (id, payload) => {
+  const res = await api.put(`/videos/${id}`, payload, attachAuth());
+  return res.data;
+};
+
+// Cashback Offers Management
+export const adminGetCashbackOffers = async () => {
+  const res = await api.get('/cashback-offers', attachAuth());
+  return res.data;
+};
+export const adminCreateCashbackOffer = async (payload) => {
+  const res = await api.post('/cashback-offers', payload, attachAuth());
+  return res.data;
+};
+export const adminUpdateCashbackOffer = async (id, payload) => {
+  const res = await api.put(`/cashback-offers/${id}`, payload, attachAuth());
+  return res.data;
+};
+export const adminDeleteCashbackOffer = async (id) => {
+  const res = await api.delete(`/cashback-offers/${id}`, attachAuth());
+  return res.data;
+};
+export const adminToggleCashbackOffer = async (id) => {
+  const res = await api.patch(`/cashback-offers/${id}/toggle`, {}, attachAuth());
+  return res.data;
+};
+
 
 export const safeAdminCall = async (fn) => {
   try {

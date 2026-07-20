@@ -146,8 +146,7 @@ const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed 
           id: "wallet",
           name: "Wallet & Rewards",
           icon: <FaWallet />,
-          requiredPermission: "wallet",
-          underMaintenance: true
+          requiredPermission: "wallet"
         },
         {
           id: "support",

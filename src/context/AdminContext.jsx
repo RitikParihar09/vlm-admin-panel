@@ -56,6 +56,12 @@ import {
   adminApproveVideo,
   adminRejectVideo,
   adminDeleteVideo,
+  adminUpdateVideo,
+  adminGetCashbackOffers,
+  adminCreateCashbackOffer,
+  adminUpdateCashbackOffer,
+  adminDeleteCashbackOffer,
+  adminToggleCashbackOffer,
   adminUpdateStudentSubscription,
   safeAdminCall
 } from '../api/adminAuthApi';
@@ -956,6 +962,54 @@ updateStudent: async (id, payload) => {
         const res = await safeAdminCall(() => adminDeleteVideo(id));
         if (!res.ok) {
           setGlobalError(res.error?.message || 'Failed to delete video');
+          return false;
+        }
+        return true;
+      },
+      updateShortVideo: async (id, payload) => {
+        const res = await safeAdminCall(() => adminUpdateVideo(id, payload));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to update video');
+          return false;
+        }
+        return true;
+      },
+      getCashbackOffers: async () => {
+        const res = await safeAdminCall(() => adminGetCashbackOffers());
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to get cashback offers');
+          return null;
+        }
+        return res.data;
+      },
+      createCashbackOffer: async (payload) => {
+        const res = await safeAdminCall(() => adminCreateCashbackOffer(payload));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to create cashback offer');
+          return false;
+        }
+        return true;
+      },
+      updateCashbackOffer: async (id, payload) => {
+        const res = await safeAdminCall(() => adminUpdateCashbackOffer(id, payload));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to update cashback offer');
+          return false;
+        }
+        return true;
+      },
+      deleteCashbackOffer: async (id) => {
+        const res = await safeAdminCall(() => adminDeleteCashbackOffer(id));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to delete cashback offer');
+          return false;
+        }
+        return true;
+      },
+      toggleCashbackOffer: async (id) => {
+        const res = await safeAdminCall(() => adminToggleCashbackOffer(id));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to toggle cashback offer');
           return false;
         }
         return true;
