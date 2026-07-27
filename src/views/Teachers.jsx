@@ -59,6 +59,19 @@ const Teachers = () => {
   const [pageSize, setPageSize] = useState(10);
   const [selectedTeacherIds, setSelectedTeacherIds] = useState([]);
 
+// Compute real stats from teachers data
+  // Exclude rejected/terminated teachers from total count (check both status and verificationStatus)
+  const totalTeachers = teachers.filter(t => 
+    t.status !== 'rejected' && t.status !== 'Rejected' && 
+    t.status !== 'terminated' && t.status !== 'Terminated' &&
+    t.verificationStatus !== 'rejected' && t.verificationStatus !== 'Rejected'
+  ).length;
+  const activeTeachers = teachers.filter(t => t.status === 'active' || t.status === 'Active').length;
+  const pendingApplications = teachers.filter(t => t.status === 'pending' || t.status === 'Pending' || t.status === 'applied' || t.status === 'Applied').length;
+  const verifiedTeachers = teachers.filter(t => t.status === 'verified' || t.status === 'Verified' || t.verified === true).length;
+  const rejectedTeachers = teachers.filter(t => t.status === 'rejected' || t.status === 'Rejected' || t.verificationStatus === 'rejected' || t.verificationStatus === 'Rejected').length;
+  const earningsTotal = teachers.reduce((sum, t) => sum + (t.wallet?.balance || t.wallet?.amount || 0), 0);
+
   const openAddModal = () => {
     setEditingTeacher(null);
     setName('');
@@ -170,16 +183,12 @@ const Teachers = () => {
     { id: 'matching', title: 'Teacher Matching', desc: 'Match teachers with student requirements', icon: <FaUserFriends />, color: '#6366f1', bg: 'rgba(99, 102, 241, 0.1)' },
     { id: 'performance', title: 'Teacher Performance', desc: 'Monitor performance and analytics', icon: <FaChartBar />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
     { id: 'ratings', title: 'Teacher Ratings', desc: 'View ratings and feedback', icon: <FaStar />, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)' },
-    { id: 'earnings', title: 'Teacher Earnings', desc: 'Track earnings and payments', icon: <FaMoneyBillWaveIcon />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
+    { id: 'earnings', title: 'Teacher Earnings', desc: 'Track earnings and payments', icon: <FaWallet />, color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)' },
     { id: 'wallet', title: 'Teacher Wallet', desc: 'Manage teacher wallet balance', icon: <FaWallet />, color: '#8b5cf6', bg: 'rgba(139, 92, 246, 0.1)' },
-    { id: 'withdrawals', title: 'Teacher Withdrawals', desc: 'Manage withdrawal requests', icon: <FaMoneyBillWaveIcon />, color: '#f97316', bg: 'rgba(249, 115, 22, 0.1)' },
+    { id: 'withdrawals', title: 'Teacher Withdrawals', desc: 'Manage withdrawal requests', icon: <FaWallet />, color: '#f97316', bg: 'rgba(249, 115, 22, 0.1)' },
     { id: 'kyc', title: 'Teacher KYC', desc: 'Manage KYC verification documents', icon: <FaShieldAlt />, color: '#0284c7', bg: 'rgba(2, 132, 199, 0.1)' },
     { id: 'agreement', title: 'Teacher Agreement', desc: 'Manage agreements and contracts', icon: <FaFileContract />, color: '#ec4899', bg: 'rgba(236, 72, 153, 0.1)' }
   ];
-
-  function FaMoneyBillWaveIcon() {
-    return <FaWallet />;
-  }
 
   // Mock recent applications for overview
   const recentApplications = [
@@ -306,11 +315,11 @@ const Teachers = () => {
           </div>
         </div>
       ) : (
-        /* Overview Dashboard View (Matched to Screenshot) */
+        /* Overview Dashboard View */
         <div>
-          {/* Top 5 Stat Metrics Cards */}
+          {/* Top 5 Stat Metrics Cards - Using REAL data */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
-            {/* Card 1 */}
+            {/* Card 1 - Total Teachers */}
             <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Total Teachers</span>
@@ -318,13 +327,13 @@ const Teachers = () => {
                   <FaUsers size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>156</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>{totalTeachers.toLocaleString()}</div>
               <div style={{ fontSize: '12px', color: '#10b981', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
                 <FaArrowUp size={10} /> 12.5% <span style={{ color: '#94a3b8', fontWeight: '400' }}>vs last 30 days</span>
               </div>
             </div>
 
-            {/* Card 2 */}
+            {/* Card 2 - Active Teachers */}
             <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Active Teachers</span>
@@ -332,13 +341,13 @@ const Teachers = () => {
                   <FaUserCheck size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>128</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>{activeTeachers.toLocaleString()}</div>
               <div style={{ fontSize: '12px', color: '#10b981', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
                 <FaArrowUp size={10} /> 8.3% <span style={{ color: '#94a3b8', fontWeight: '400' }}>vs last 30 days</span>
               </div>
             </div>
 
-            {/* Card 3 */}
+            {/* Card 3 - Pending Applications */}
             <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Pending Applications</span>
@@ -346,13 +355,13 @@ const Teachers = () => {
                   <FaUserClock size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>24</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>{pendingApplications.toLocaleString()}</div>
               <div style={{ fontSize: '12px', color: '#ef4444', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
                 <FaArrowDown size={10} /> 4.2% <span style={{ color: '#94a3b8', fontWeight: '400' }}>vs last 30 days</span>
               </div>
             </div>
 
-            {/* Card 4 */}
+            {/* Card 4 - Verified Teachers */}
             <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Verified Teachers</span>
@@ -360,13 +369,13 @@ const Teachers = () => {
                   <FaShieldAlt size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>142</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>{verifiedTeachers.toLocaleString()}</div>
               <div style={{ fontSize: '12px', color: '#10b981', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
                 <FaArrowUp size={10} /> 15.6% <span style={{ color: '#94a3b8', fontWeight: '400' }}>vs last 30 days</span>
               </div>
             </div>
 
-            {/* Card 5 */}
+            {/* Card 5 - Total Earnings */}
             <div style={{ background: '#fff', borderRadius: '12px', padding: '20px', border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.03)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
                 <span style={{ fontSize: '13px', fontWeight: '600', color: '#64748b' }}>Total Earnings</span>
@@ -374,7 +383,7 @@ const Teachers = () => {
                   <FaWallet size={16} />
                 </div>
               </div>
-              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>₹ 12.48 Cr</div>
+              <div style={{ fontSize: '24px', fontWeight: '800', color: '#0f172a' }}>₹ {(earningsTotal / 10000000).toFixed(2)} Cr</div>
               <div style={{ fontSize: '12px', color: '#10b981', marginTop: '6px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: '600' }}>
                 <FaArrowUp size={10} /> 18.4% <span style={{ color: '#94a3b8', fontWeight: '400' }}>vs last 30 days</span>
               </div>
@@ -400,13 +409,12 @@ const Teachers = () => {
                     border: '1px solid #e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
-                    justify: 'space-between',
                     cursor: 'pointer',
-                    transition: 'all 0.2s hover',
+                    transition: 'all 0.2s',
                     boxShadow: '0 1px 2px rgba(0,0,0,0.02)'
                   }}
                 >
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flex: 1 }}>
                     <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: card.bg, color: card.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>
                       {card.icon}
                     </div>
@@ -505,7 +513,7 @@ const Teachers = () => {
                     display: 'flex', alignItems: 'center', justifyContent: 'center'
                   }}>
                     <div style={{ width: '100px', height: '100px', borderRadius: '50%', background: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-                      <span style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>142</span>
+                      <span style={{ fontSize: '20px', fontWeight: '800', color: '#0f172a' }}>{verifiedTeachers}</span>
                       <span style={{ fontSize: '10px', color: '#64748b' }}>Total Verified</span>
                     </div>
                   </div>
@@ -518,14 +526,14 @@ const Teachers = () => {
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#3b82f6' }}></span>
                       <span style={{ color: '#475569' }}>Verified</span>
                     </div>
-                    <span style={{ fontWeight: '600', color: '#0f172a' }}>142 (68%)</span>
+                    <span style={{ fontWeight: '600', color: '#0f172a' }}>{verifiedTeachers} ({totalTeachers > 0 ? Math.round(verifiedTeachers / totalTeachers * 100) : 0}%)</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#a855f7' }}></span>
                       <span style={{ color: '#475569' }}>In Review</span>
                     </div>
-                    <span style={{ fontWeight: '600', color: '#0f172a' }}>24 (12%)</span>
+                    <span style={{ fontWeight: '600', color: '#0f172a' }}>{pendingApplications} ({totalTeachers > 0 ? Math.round(pendingApplications / totalTeachers * 100) : 0}%)</span>
                   </div>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -591,3 +599,4 @@ const Teachers = () => {
 };
 
 export default Teachers;
+

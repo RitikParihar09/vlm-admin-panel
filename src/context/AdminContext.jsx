@@ -101,7 +101,7 @@ const normalizeTeachers = (data) => {
       ? payload
       : [];
 
-  return list.map((tr) => ({
+return list.map((tr) => ({
     _id: tr._id || tr.id || '',
     id: tr._id || tr.id || '',
     name: tr.name || tr.fullName || tr.full_name,
@@ -111,7 +111,10 @@ const normalizeTeachers = (data) => {
     rating: tr.rating,
     activeClasses: tr.activeClasses,
     vlmTeacherId: tr.vlmTeacherId || tr.vlm_id || tr.teacherId || undefined,
-    status: tr.status || 'active'
+    status: tr.status || 'active',
+    verificationStatus: tr.verificationStatus || undefined,
+    verified: tr.verified || false,
+    documents: tr.documents || []
   }));
 };
 
@@ -438,9 +441,10 @@ export const AdminProvider = ({ children }) => {
       authLoading,
       authError,
 
-      // Global loads
+// Global loads
       globalLoading,
       globalError,
+      refreshAll,
 
       // Dashboard
       dashboard,

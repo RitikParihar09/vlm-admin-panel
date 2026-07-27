@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { 
   adminGetPendingVerifications, 
   adminSubmitVerifyDecision, 
-  adminGetAgoraToken 
+  adminGetAgoraToken,
+  safeAdminCall
 } from '../api/adminAuthApi';
 import ActionModal from '../components/ActionModal';
+import { useAdmin } from '../context/AdminContext';
 import { 
   FaUserCheck, 
   FaSearch, 
@@ -38,6 +40,9 @@ const TeacherVerification = () => {
   const [rejectionReason, setRejectionReason] = useState('');
   const [decisionNotes, setDecisionNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
+
+  // Access admin context to refresh data after decision
+  const { refreshAll } = useAdmin();
 
   // Agora Call Modal
   const [callModalOpen, setCallModalOpen] = useState(false);
@@ -113,6 +118,10 @@ const TeacherVerification = () => {
         alert(res.message || `Teacher application ${decisionType}d successfully.`);
         setDecisionModalOpen(false);
         fetchQueue();
+        // Refresh the main admin context data so counts update in Teachers overview
+        if (typeof refreshAll === 'function') {
+          await refreshAll();
+        }
       } else {
         alert(res?.message || 'Failed to submit verification decision.');
       }
