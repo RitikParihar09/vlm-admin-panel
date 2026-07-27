@@ -369,6 +369,37 @@ export const adminToggleCashbackOffer = async (id) => {
 };
 
 
+// Teacher Verification & Payouts API
+export const adminGetPendingVerifications = async () => {
+  const res = await api.get('/teachers/pending-verification', attachAuth());
+  return res.data;
+};
+
+export const adminSubmitVerifyDecision = async (payload) => {
+  const res = await api.post('/teachers/verify-decision', payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+export const adminGetAgoraToken = async (interviewId) => {
+  const res = await api.post('/teacher/verification/agora-token', { interviewId }, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+export const adminGetPendingPayouts = async () => {
+  const res = await api.get('/payouts/pending', attachAuth());
+  return res.data;
+};
+
+export const adminProcessPayout = async (payload) => {
+  const res = await api.post('/payouts/process', payload, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+export const adminGetPayoutHistory = async () => {
+  const res = await api.get('/payouts/history', attachAuth());
+  return res.data;
+};
+
 export const safeAdminCall = async (fn) => {
   try {
     const data = await fn();
@@ -378,4 +409,5 @@ export const safeAdminCall = async (fn) => {
     return { ok: false, error: mapped };
   }
 };
+
 

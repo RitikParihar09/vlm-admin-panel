@@ -29,6 +29,8 @@ import SystemConfig from './views/SystemConfig';
 import SecurityCompliance from './views/SecurityCompliance';
 import MediaManagement from './views/MediaManagement';
 import FounderDashboard from './views/FounderDashboard';
+import TeacherVerification from './views/TeacherVerification';
+import PayoutsManagement from './views/PayoutsManagement';
 
 function AppContent() {
   const { adminUser, logoutAdmin } = useAdmin();
@@ -50,6 +52,8 @@ function AppContent() {
   const viewPermissions = {
     students: 'students',
     teachers: 'teachers',
+    'teacher-verification': 'teachers',
+    payouts: 'financials',
     parents: 'parents',
     liveclasses: 'liveclasses',
     studymaterial: 'study-materials',
@@ -103,7 +107,10 @@ function AppContent() {
       case 'dashboard': return <Dashboard setActiveView={setActiveView} />;
       case 'students': return <Students />;
       case 'teachers': return <Teachers />;
+      case 'teacher-verification': return <TeacherVerification />;
+      case 'payouts': return <PayoutsManagement />;
       case 'parents': return <Parents />;
+
       case 'liveclasses': return <LiveClasses />;
       case 'studymaterial': return <StudyMaterial />;
       case 'mcqtasks': return <McqTasks />;

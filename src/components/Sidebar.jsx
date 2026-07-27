@@ -28,7 +28,8 @@ import {
   FaAngleRight,
   FaLink,
   FaTicketAlt,
-  FaAd
+  FaAd,
+  FaMoneyBillWave
 } from "react-icons/fa";
 import logo from '../assets/logo.png';
 
@@ -147,6 +148,12 @@ const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed 
           name: "Wallet & Rewards",
           icon: <FaWallet />,
           requiredPermission: "wallet"
+        },
+        {
+          id: "payouts",
+          name: "Weekly Payouts",
+          icon: <FaMoneyBillWave />,
+          requiredPermission: "financials"
         },
         {
           id: "support",
