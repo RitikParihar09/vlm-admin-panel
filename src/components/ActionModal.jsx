@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 'Save Changes' }) => {
+const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 'Save Changes', size = 'medium' }) => {
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') onClose();
@@ -20,8 +20,12 @@ const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 
   if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content glass-panel" onClick={(e) => e.stopPropagation()}>
+    <div className="modal-overlay" onClick={onClose} style={size === 'fullscreen' ? { padding: 0 } : {}}>
+      <div 
+        className={`modal-content glass-panel ${size === 'fullscreen' ? 'fullscreen' : ''}`} 
+        onClick={(e) => e.stopPropagation()}
+        style={size === 'fullscreen' ? { maxWidth: '100vw', width: '100vw', height: '100vh', maxHeight: '100vh', borderRadius: 0, border: 'none', display: 'flex', flexDirection: 'column' } : {}}
+      >
         <div className="modal-header">
           <h3>{title}</h3>
           <button className="modal-close-btn" onClick={onClose}>
@@ -31,22 +35,27 @@ const ActionModal = ({ isOpen, onClose, title, children, onSubmit, submitText = 
           </button>
         </div>
 
-        <form onSubmit={async (e) => {
-          e.preventDefault();
-          if (onSubmit) await onSubmit(e);
-        }}>
-          <div className="modal-body">
+        <form 
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (onSubmit) await onSubmit(e);
+          }}
+          style={size === 'fullscreen' ? { flex: 1, display: 'flex', flexDirection: 'column', height: 'calc(100% - 60px)' } : {}}
+        >
+          <div className="modal-body" style={size === 'fullscreen' ? { flex: 1, maxHeight: 'none', height: '100%', padding: 0, display: 'flex', flexDirection: 'column' } : {}}>
             {children}
           </div>
 
-          <div className="modal-footer">
-            <button type="button" className="modal-btn secondary" onClick={onClose}>
-              Cancel
-            </button>
-            <button type="submit" className="modal-btn primary">
-              {submitText}
-            </button>
-          </div>
+          {size !== 'fullscreen' && (
+            <div className="modal-footer">
+              <button type="button" className="modal-btn secondary" onClick={onClose}>
+                Cancel
+              </button>
+              <button type="submit" className="modal-btn primary">
+                {submitText}
+              </button>
+            </div>
+          )}
         </form>
       </div>
 

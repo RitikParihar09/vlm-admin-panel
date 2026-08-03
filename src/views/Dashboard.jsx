@@ -25,7 +25,13 @@ const Dashboard = ({ setActiveView }) => {
     teachers = [],
     parents = [],
     liveClasses = [],
-    doubts = []
+    doubts = [],
+    dashboard,
+    dashboardLiveStats,
+    dashboardSystemHealth,
+    dashboardRecentActivities,
+    withdrawals = [],
+    resources = []
   } = useAdmin();
 
   const handleViewClick = (viewId) => {
@@ -37,59 +43,53 @@ const Dashboard = ({ setActiveView }) => {
   const dynamicStudents = students.length;
   const dynamicTeachers = teachers.length;
   const dynamicParents = parents.length;
-  const activeLiveCount = liveClasses.filter(c => c.status === 'Live').length;
 
   const stats = [
     {
       title: 'Total Students',
-      value: dynamicStudents.toLocaleString(),
-      change: '↑ 12.5%',
-      sub: 'vs last 30 days',
+      value: (dashboard?.totalStudents ?? dynamicStudents).toLocaleString(),
+      sub: 'Registered Students',
       icon: <FaUserGraduate />,
       theme: 'purple',
       view: 'students'
     },
     {
       title: 'Total Teachers',
-      value: dynamicTeachers.toLocaleString(),
-      change: '↑ 8.7%',
-      sub: 'vs last 30 days',
+      value: (dashboard?.totalTeachers ?? dynamicTeachers).toLocaleString(),
+      sub: 'Registered Teachers',
       icon: <FaChalkboardTeacher />,
       theme: 'green',
       view: 'teachers'
     },
     {
       title: 'Total Parents',
-      value: dynamicParents.toLocaleString(),
-      change: '↑ 10.2%',
-      sub: 'vs last 30 days',
+      value: (dashboard?.totalParents ?? dynamicParents).toLocaleString(),
+      sub: 'Linked Parents',
       icon: <FaUsers />,
       theme: 'blue',
       view: 'parents'
     },
     {
       title: 'Total Revenue',
-      value: '₹ 2.48 Cr',
-      change: '↑ 15.3%',
-      sub: 'vs last 30 days',
+      value: dashboard?.totalRevenue !== undefined ? `₹ ${dashboard.totalRevenue.toLocaleString('en-IN')}` : '₹ 0',
+      sub: 'All-time Earnings',
       icon: <FaRupeeSign />,
       theme: 'orange',
       view: 'subscription'
     },
     {
       title: 'Live Sessions',
-      value: activeLiveCount.toLocaleString(),
-      change: 'Live Now',
+      value: (dashboardLiveStats?.activeSessions ?? 0).toLocaleString(),
+      change: (dashboardLiveStats?.activeSessions ?? 0) > 0 ? 'Live Now' : '',
       sub: 'Active sessions',
       icon: <FaVideo />,
       theme: 'magenta',
       view: 'liveclasses'
     },
     {
-      title: 'AI Chats Today',
-      value: '45,678',
-      change: '↑ 18.6%',
-      sub: 'vs yesterday',
+      title: 'Total Sessions',
+      value: (dashboard?.totalSessions ?? 0).toLocaleString(),
+      sub: 'Completed Doubts & Classes',
       icon: <FaRobot />,
       theme: 'dark-blue',
       view: 'aimanager'
@@ -97,21 +97,147 @@ const Dashboard = ({ setActiveView }) => {
   ];
 
   const approvals = [
-    { name: 'Teacher Applications', count: 24, view: 'teachers' },
-    { name: 'Content Approval', count: 18, view: 'studymaterial' },
-    { name: 'Live Class Approval', count: 12, view: 'liveclasses' },
-    { name: 'Video Approval', count: 7, view: 'shortvideos' },
-    { name: 'Withdrawal Requests', count: 9, view: 'subscription' },
-    { name: 'Student Verifications', count: 32, view: 'students' }
-  ];
+    { name: 'Teacher Applications', count: dashboard?.pendingTeachers ?? 0, view: 'teachers' },
+    { name: 'Live Doubt Sessions', count: dashboard?.pendingDoubts ?? 0, view: 'doubts' },
+    { name: 'Open Support Tickets', count: dashboard?.openTickets ?? 0, view: 'support' },
+    { name: 'Pending Withdrawals', count: withdrawals.filter(w => w.status === 'pending').length, view: 'subscription' }
+  ].filter(app => app.count > 0);
 
-  const activities = [
-    { title: 'New student registered', desc: 'Rahul Kumar from Class 12 Science', time: '2 min ago', icon: '👤' },
-    { title: 'Live doubt session started', desc: 'Physics - Motion in 2D', time: '5 min ago', icon: '❓' },
-    { title: 'Teacher Aditi Sharma joined', desc: 'Available for doubt sessions', time: '8 min ago', icon: '👩‍🏫' },
-    { title: 'Payment received', desc: '₹999 from Priya Verma', time: '12 min ago', icon: '💳' },
-    { title: 'New content uploaded', desc: 'Chapter: Thermodynamics', time: '18 min ago', icon: '📚' }
-  ];
+  const getGrowthData = (items) => {
+    const dates = [];
+    const now = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(now.getDate() - i * 5);
+      dates.push(d);
+    }
+    const sorted = [...items].sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    return dates.map(date => {
+      return sorted.filter(item => !item.createdAt || new Date(item.createdAt) <= date).length;
+    });
+  };
+
+  const studentGrowth = getGrowthData(students);
+  const teacherGrowth = getGrowthData(teachers);
+  const parentGrowth = getGrowthData(parents);
+
+  const maxVal = Math.max(
+    ...studentGrowth,
+    ...teacherGrowth,
+    ...parentGrowth,
+    10
+  );
+
+  const getY = (v) => 180 - (v / maxVal) * 140;
+
+  const getPathD = (growthArray) => {
+    return growthArray.map((val, idx) => {
+      const x = 50 + idx * 75;
+      const y = getY(val);
+      return `${idx === 0 ? 'M' : 'L'} ${x} ${y}`;
+    }).join(' ');
+  };
+
+  const studentPath = getPathD(studentGrowth);
+  const teacherPath = getPathD(teacherGrowth);
+  const parentPath = getPathD(parentGrowth);
+
+  const yAxisTicks = [];
+  for (let i = 0; i <= 5; i++) {
+    yAxisTicks.push(Math.round((maxVal / 5) * i));
+  }
+
+  const xLabels = [];
+  const now = new Date();
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date();
+    d.setDate(now.getDate() - i * 5);
+    xLabels.push(`${d.getDate()} ${monthNames[d.getMonth()]}`);
+  }
+
+  const formatTimeAgo = (date) => {
+    const seconds = Math.floor((new Date() - date) / 1000);
+    if (seconds < 60) return 'Just now';
+    const minutes = Math.floor(seconds / 60);
+    if (minutes < 60) return `${minutes} min ago`;
+    const hours = Math.floor(minutes / 60);
+    if (hours < 24) return `${hours} hrs ago`;
+    const days = Math.floor(hours / 24);
+    return `${days} days ago`;
+  };
+
+  const activities = [];
+  if (dashboardRecentActivities) {
+    const { recentDoubts = [], recentSessions = [], recentTickets = [] } = dashboardRecentActivities;
+    
+    recentDoubts.forEach(d => {
+      activities.push({
+        title: 'New Doubt Request',
+        desc: `${d.studentId?.fullName || 'Student'} requested help in ${d.subject || 'Doubt'}`,
+        time: new Date(d.createdAt),
+        icon: '❓'
+      });
+    });
+
+    recentSessions.forEach(s => {
+      activities.push({
+        title: 'Session Started',
+        desc: `${s.studentId?.fullName || 'Student'} joined a session (${s.sessionType || 'Session'})`,
+        time: new Date(s.createdAt),
+        icon: '💻'
+      });
+    });
+
+    recentTickets.forEach(t => {
+      activities.push({
+        title: 'Support Ticket',
+        desc: `${t.userId?.name || 'User'} opened ticket: ${t.subject || t.description || 'Support request'}`,
+        time: new Date(t.createdAt),
+        icon: '🎫'
+      });
+    });
+
+    activities.sort((a, b) => b.time - a.time);
+  }
+
+
+  const subjectCounts = {};
+  teachers.forEach(t => {
+    (t.subjects || []).forEach(sub => {
+      const sName = sub.trim();
+      if (sName) {
+        subjectCounts[sName] = (subjectCounts[sName] || 0) + 1;
+      }
+    });
+  });
+  const totalSubjectsCount = Object.values(subjectCounts).reduce((a, b) => a + b, 0) || 1;
+  const topSubjects = Object.keys(subjectCounts)
+    .map(name => ({
+      name,
+      count: subjectCounts[name],
+      percentage: ((subjectCounts[name] / totalSubjectsCount) * 100).toFixed(1)
+    }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  let currentOffset = 100;
+  const colors = ['#3b82f6', '#8b5cf6', '#06b6d4', '#10b981', '#f59e0b'];
+  const donutSlices = topSubjects.map((sub, idx) => {
+    const pct = parseFloat(sub.percentage);
+    const strokeDashoffset = currentOffset;
+    currentOffset -= pct;
+    return {
+      ...sub,
+      color: colors[idx % colors.length],
+      strokeDasharray: `${pct} ${100 - pct}`,
+      strokeDashoffset
+    };
+  });
+
+  const totalRewardPoints = students.reduce((acc, st) => acc + (st.rewardPoints || 0), 0);
+  const totalAiCredits = students.reduce((acc, st) => acc + (st.wallet?.aiCredits ?? 0), 0);
+  const totalWalletBalance = students.reduce((acc, st) => acc + (st.wallet?.balance ?? 0), 0);
 
   const quickAccessActions = [
     { label: 'Add Student', icon: <FaPlusCircle />, view: 'students', color: '#8b5cf6' },
@@ -166,18 +292,18 @@ const Dashboard = ({ setActiveView }) => {
             {/* SVG Interactive Multi-Line Chart */}
             <svg viewBox="0 0 550 200" className="dashboard-svg-chart">
               {/* Horizontal grid lines */}
-              {[0, 25, 50, 75, 100, 125, 150].map((val, idx) => {
-                const y = 180 - (val / 150) * 150;
+              {yAxisTicks.map((val, idx) => {
+                const y = getY(val);
                 return (
                   <g key={idx}>
                     <line x1="45" y1={y} x2="520" y2={y} stroke="#f1f5f9" strokeDasharray="3,3" />
-                    <text x="35" y={y + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{val}K</text>
+                    <text x="35" y={y + 4} textAnchor="end" fontSize="10" fill="#94a3b8">{val}</text>
                   </g>
                 );
               })}
 
               {/* X Axis Labels */}
-              {['8 May', '13 May', '18 May', '23 May', '28 May', '2 Jun', '7 Jun'].map((label, idx) => {
+              {xLabels.map((label, idx) => {
                 const x = 50 + idx * 75;
                 return (
                   <text key={idx} x={x} y="195" textAnchor="middle" fontSize="10" fill="#94a3b8">{label}</text>
@@ -186,7 +312,7 @@ const Dashboard = ({ setActiveView }) => {
 
               {/* Purple Line (Students) */}
               <path 
-                d="M 50 120 L 125 110 L 200 102 L 275 92 L 350 85 L 425 80 L 500 70" 
+                d={studentPath} 
                 fill="none" 
                 stroke="#8b5cf6" 
                 strokeWidth="3.5" 
@@ -194,7 +320,7 @@ const Dashboard = ({ setActiveView }) => {
               />
               {/* Green Line (Teachers) */}
               <path 
-                d="M 50 150 L 125 145 L 200 142 L 275 138 L 350 135 L 425 131 L 500 128" 
+                d={teacherPath} 
                 fill="none" 
                 stroke="#10b981" 
                 strokeWidth="3.5" 
@@ -202,7 +328,7 @@ const Dashboard = ({ setActiveView }) => {
               />
               {/* Blue Line (Parents) */}
               <path 
-                d="M 50 170 L 125 163 L 200 158 L 275 152 L 350 148 L 425 145 L 500 138" 
+                d={parentPath} 
                 fill="none" 
                 stroke="#3b82f6" 
                 strokeWidth="3.5" 
@@ -210,9 +336,9 @@ const Dashboard = ({ setActiveView }) => {
               />
 
               {/* Nodes dots on hover */}
-              <circle cx="500" cy="70" r="5" fill="#8b5cf6" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="500" cy="128" r="5" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
-              <circle cx="500" cy="138" r="5" fill="#3b82f6" stroke="#ffffff" strokeWidth="2" />
+              <circle cx="500" cy={getY(studentGrowth[6])} r="5" fill="#8b5cf6" stroke="#ffffff" strokeWidth="2" />
+              <circle cx="500" cy={getY(teacherGrowth[6])} r="5" fill="#10b981" stroke="#ffffff" strokeWidth="2" />
+              <circle cx="500" cy={getY(parentGrowth[6])} r="5" fill="#3b82f6" stroke="#ffffff" strokeWidth="2" />
             </svg>
           </div>
           
@@ -230,16 +356,25 @@ const Dashboard = ({ setActiveView }) => {
             <button className="text-link-new" onClick={() => handleViewClick('security')}>View All</button>
           </div>
           <div className="activities-list-new">
-            {activities.map((act, idx) => (
-              <div key={idx} className="activity-row-new">
-                <div className="act-icon-wrapper-new">{act.icon}</div>
-                <div className="act-info-new">
-                  <h4 className="act-title-new">{act.title}</h4>
-                  <span className="act-desc-new">{act.desc}</span>
+            {activities.length > 0 ? (
+              activities.slice(0, 10).map((act, idx) => (
+                <div key={idx} className="activity-row-new">
+                  <div className="act-icon-wrapper-new">{act.icon}</div>
+                  <div className="act-info-new">
+                    <h4 className="act-title-new">{act.title}</h4>
+                    <span className="act-desc-new">{act.desc}</span>
+                  </div>
+                  <span className="act-time-new">
+                    <FaClock style={{ marginRight: '4px', fontSize: '10px' }} />
+                    {formatTimeAgo(act.time)}
+                  </span>
                 </div>
-                <span className="act-time-new"><FaClock style={{ marginRight: '4px', fontSize: '10px' }} />{act.time}</span>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: '12px' }}>
+                No recent activity recorded
               </div>
-            ))}
+            )}
           </div>
         </div>
 
@@ -250,22 +385,28 @@ const Dashboard = ({ setActiveView }) => {
             <button className="text-link-new" onClick={() => handleViewClick('sysconfig')}>View All</button>
           </div>
           <div className="approvals-list-new">
-            {approvals.map((app, idx) => (
-              <div 
-                key={idx} 
-                className="approval-row-new"
-                onClick={() => handleViewClick(app.view)}
-              >
-                <div className="app-left">
-                  <span className="app-check-icon"><FaCheckCircle /></span>
-                  <span className="app-name-new">{app.name}</span>
+            {approvals.length > 0 ? (
+              approvals.map((app, idx) => (
+                <div 
+                  key={idx} 
+                  className="approval-row-new"
+                  onClick={() => handleViewClick(app.view)}
+                >
+                  <div className="app-left">
+                    <span className="app-check-icon"><FaCheckCircle /></span>
+                    <span className="app-name-new">{app.name}</span>
+                  </div>
+                  <div className="app-right">
+                    <span className="app-badge-new">{app.count}</span>
+                    <FaChevronRight className="chevron-link" />
+                  </div>
                 </div>
-                <div className="app-right">
-                  <span className="app-badge-new">{app.count}</span>
-                  <FaChevronRight className="chevron-link" />
-                </div>
+              ))
+            ) : (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: '12px' }}>
+                All caught up! No pending approvals
               </div>
-            ))}
+            )}
           </div>
         </div>
       </div>
@@ -276,18 +417,16 @@ const Dashboard = ({ setActiveView }) => {
         <div className="glass-panel rev-chart-card">
           <div className="card-header-new">
             <h3>Revenue Overview</h3>
-            <select className="chart-dropdown">
-              <option>This Month</option>
-              <option>Last Month</option>
-            </select>
+            <span className="rev-gray-text" style={{ fontSize: '11px', fontWeight: '500' }}>Platform earnings</span>
           </div>
           <div className="rev-overview-val">
-            <span className="rev-bold-val">₹ 2.48 Crore</span>
-            <span className="rev-pct-pos">+15.3% <span className="rev-gray-text">vs last month</span></span>
+            <span className="rev-bold-val">
+              {dashboard?.totalRevenue !== undefined ? `₹ ${dashboard.totalRevenue.toLocaleString('en-IN')}` : '₹ 0'}
+            </span>
+            <span className="rev-pct-pos"><span className="rev-gray-text">Gross wallet deposits</span></span>
           </div>
           <div className="chart-wrapper-new rev">
             <svg viewBox="0 0 350 110" className="dashboard-svg-chart">
-              {/* Gradient def */}
               <defs>
                 <linearGradient id="purpleGlow" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="0%" stopColor="#d946ef" stopOpacity="0.25" />
@@ -314,9 +453,7 @@ const Dashboard = ({ setActiveView }) => {
         <div className="glass-panel subjects-chart-card">
           <div className="card-header-new">
             <h3>Top Subjects</h3>
-            <select className="chart-dropdown">
-              <option>By Students</option>
-            </select>
+            <span className="rev-gray-text" style={{ fontSize: '11px', fontWeight: '500' }}>By teacher count</span>
           </div>
           
           <div className="donut-grid-new">
@@ -324,63 +461,67 @@ const Dashboard = ({ setActiveView }) => {
             <div className="donut-relative-container">
               <svg width="120" height="120" viewBox="0 0 36 36" className="donut-svg-new">
                 <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f1f5f9" strokeWidth="3" />
-                
-                {/* Physics slice: 24.5% */}
-                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#3b82f6" strokeWidth="3.2" strokeDasharray="24.5 75.5" strokeDashoffset="25" />
-                {/* Math slice: 21.8% */}
-                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#8b5cf6" strokeWidth="3.2" strokeDasharray="21.8 78.2" strokeDashoffset="0.5" />
-                {/* Chemistry slice: 16.7% */}
-                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#06b6d4" strokeWidth="3.2" strokeDasharray="16.7 83.3" strokeDashoffset="78.7" />
-                {/* Biology slice: 14.2% */}
-                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#10b981" strokeWidth="3.2" strokeDasharray="14.2 85.8" strokeDashoffset="62" />
-                {/* English slice: 12.6% */}
-                <circle cx="18" cy="18" r="15.915" fill="transparent" stroke="#f59e0b" strokeWidth="3.2" strokeDasharray="12.6 87.4" strokeDashoffset="49.4" />
+                {donutSlices.map((slice, idx) => (
+                  <circle 
+                    key={idx} 
+                    cx="18" 
+                    cy="18" 
+                    r="15.915" 
+                    fill="transparent" 
+                    stroke={slice.color} 
+                    strokeWidth="3.2" 
+                    strokeDasharray={slice.strokeDasharray} 
+                    strokeDashoffset={slice.strokeDashoffset} 
+                  />
+                ))}
               </svg>
               <div className="donut-center-info">
-                <span className="donut-tot-count">{dynamicStudents.toLocaleString()}</span>
-                <span className="donut-tot-lbl">Students</span>
+                <span className="donut-tot-count">{teachers.length}</span>
+                <span className="donut-tot-lbl">Teachers</span>
               </div>
             </div>
 
             <div className="donut-legend-col">
-              <div className="sub-legend-row"><span className="legend-dot-sub blue"></span> Physics (24.5%)</div>
-              <div className="sub-legend-row"><span className="legend-dot-sub purple"></span> Math (21.8%)</div>
-              <div className="sub-legend-row"><span className="legend-dot-sub cyan"></span> Chem (16.7%)</div>
-              <div className="sub-legend-row"><span className="legend-dot-sub green"></span> Bio (14.2%)</div>
-              <div className="sub-legend-row"><span className="legend-dot-sub orange"></span> Eng (12.6%)</div>
+              {donutSlices.length > 0 ? (
+                donutSlices.map((slice, idx) => (
+                  <div key={idx} className="sub-legend-row">
+                    <span className="legend-dot-sub" style={{ backgroundColor: slice.color }}></span>
+                    {slice.name} ({slice.percentage}%)
+                  </div>
+                ))
+              ) : (
+                <div style={{ color: '#94a3b8', fontSize: '11px' }}>No subjects defined</div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* AI Usage Overview */}
+        {/* AI Usage Overview -> Student Wallet & Credits */}
         <div className="glass-panel ai-overview-card">
           <div className="card-header-new">
-            <h3>AI Usage Overview</h3>
-            <select className="chart-dropdown">
-              <option>Today</option>
-              <option>This Week</option>
-            </select>
+            <h3>Credits & Rewards</h3>
+            <span className="rev-gray-text" style={{ fontSize: '11px', fontWeight: '500' }}>Across all students</span>
           </div>
           <div className="ai-metrics-list">
             <div className="ai-metric-item">
-              <span className="aim-lbl">AI Chats</span>
+              <span className="aim-lbl">Total AI Credits</span>
               <div className="aim-val-row">
-                <span className="aim-val">45,678</span>
-                <span className="aim-trend-pos">↑ 18.6%</span>
+                <span className="aim-val">{totalAiCredits.toLocaleString()}</span>
+                <span className="aim-trend-pos" style={{ color: '#8b5cf6' }}>Remaining</span>
               </div>
             </div>
             <div className="ai-metric-item">
-              <span className="aim-lbl">AI Prompts</span>
+              <span className="aim-lbl">Reward Points</span>
               <div className="aim-val-row">
-                <span className="aim-val">12,345</span>
-                <span className="aim-trend-pos">↑ 14.2%</span>
+                <span className="aim-val">{totalRewardPoints.toLocaleString()}</span>
+                <span className="aim-trend-pos" style={{ color: '#10b981' }}>Earned</span>
               </div>
             </div>
             <div className="ai-metric-item">
-              <span className="aim-lbl">AI Credits Used</span>
+              <span className="aim-lbl">Total Wallet Balance</span>
               <div className="aim-val-row">
-                <span className="aim-val">78,910</span>
-                <span className="aim-trend-pos">↑ 17.3%</span>
+                <span className="aim-val">₹ {totalWalletBalance.toLocaleString('en-IN')}</span>
+                <span className="aim-trend-pos" style={{ color: '#3b82f6' }}>INR</span>
               </div>
             </div>
           </div>
@@ -392,32 +533,46 @@ const Dashboard = ({ setActiveView }) => {
           <div className="health-metrics-list">
             <div className="health-metric-row">
               <span className="hm-lbl">Server Status</span>
-              <span className="hm-badge-status online">Operational</span>
+              <span className={`hm-badge-status online`} style={{ backgroundColor: dashboardSystemHealth ? '#d1fae5' : '#fee2e2', color: dashboardSystemHealth ? '#065f46' : '#991b1b' }}>
+                {dashboardSystemHealth ? 'Operational' : 'Offline'}
+              </span>
             </div>
             <div className="health-metric-row">
               <span className="hm-lbl">Database</span>
-              <span className="hm-badge-status online">Operational</span>
+              <span className={`hm-badge-status online`} style={{ backgroundColor: dashboardSystemHealth ? '#d1fae5' : '#fee2e2', color: dashboardSystemHealth ? '#065f46' : '#991b1b' }}>
+                {dashboardSystemHealth ? 'Operational' : 'Offline'}
+              </span>
             </div>
             <div className="health-metric-row">
-              <span className="hm-lbl">Live Sessions</span>
-              <span className="hm-sessions-val">1,256 <span className="hm-sub-text">Active</span></span>
+              <span className="hm-lbl">Active Sessions</span>
+              <span className="hm-sessions-val">{(dashboardLiveStats?.activeSessions ?? 0).toLocaleString()} <span className="hm-sub-text">Live Now</span></span>
             </div>
             <div className="health-metric-row flex-col">
               <div className="hm-progress-header">
-                <span className="hm-lbl">Storage Usage</span>
-                <span className="hm-lbl val">68%</span>
+                <span className="hm-lbl">Heap Memory Usage</span>
+                <span className="hm-lbl val">
+                  {dashboardSystemHealth ? `${dashboardSystemHealth.memory?.heapUsedMB} MB / ${dashboardSystemHealth.memory?.heapTotalMB} MB` : '0 MB'}
+                </span>
               </div>
               <div className="hm-progress-bar">
-                <div className="hm-progress-fill" style={{ width: '68%' }}></div>
+                <div 
+                  className="hm-progress-fill" 
+                  style={{ 
+                    width: dashboardSystemHealth 
+                      ? `${Math.min(100, Math.round((parseFloat(dashboardSystemHealth.memory?.heapUsedMB) / parseFloat(dashboardSystemHealth.memory?.heapTotalMB)) * 100))}%` 
+                      : '0%' 
+                  }}
+                ></div>
               </div>
             </div>
             <div className="health-metric-row">
-              <span className="hm-lbl">API Response</span>
-              <span className="hm-sessions-val green">98ms <span className="hm-sub-text">Good</span></span>
+              <span className="hm-lbl">Node Version</span>
+              <span className="hm-sessions-val" style={{ fontSize: '11px', color: '#64748b' }}>{dashboardSystemHealth?.node ?? 'N/A'}</span>
             </div>
           </div>
-          <div className="health-overall-status">
-            <span className="green-checkmark">✔</span> All Systems Operational
+          <div className="health-overall-status" style={{ backgroundColor: dashboardSystemHealth ? '#ecfdf5' : '#fef2f2', borderColor: dashboardSystemHealth ? '#d1fae5' : '#fee2e2', color: dashboardSystemHealth ? '#065f46' : '#991b1b' }}>
+            <span className="green-checkmark">{dashboardSystemHealth ? '✔' : '✖'}</span> 
+            {dashboardSystemHealth ? 'All Systems Operational' : 'Connection issues detected'}
           </div>
         </div>
       </div>

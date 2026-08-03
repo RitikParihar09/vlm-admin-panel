@@ -63,6 +63,10 @@ import {
   adminDeleteCashbackOffer,
   adminToggleCashbackOffer,
   adminUpdateStudentSubscription,
+  adminGetStudentStats,
+  adminGetDashboardLiveStats,
+  adminGetSystemHealth,
+  adminGetRecentActivities,
   safeAdminCall
 } from '../api/adminAuthApi';
 
@@ -77,19 +81,21 @@ const normalizeStudents = (data) => {
       : [];
 
   return list.map((st) => ({
+    ...st,
     _id: st._id || st.id || '',
     id: st._id || st.id || '',
     name: st.name || st.fullName || st.full_name || `${st.firstName || ''} ${st.lastName || ''}`.trim(),
     email: st.email || st.emailId || st.email_address,
-    phone: st.phone || st.phoneNumber,
+    phone: st.phone || st.mobile || st.phoneNumber || st.userId?.mobile,
     grade: st.grade || st.class || st.standard || st.className,
     rewardPoints: st.wallet?.totalPoints ?? st.rewardPoints ?? st.points ?? 0,
     wallet: st.wallet || {},
     subscription: st.subscription || {},
     vlmStudentId: st.vlmStudentId || st.vlm_id || st.studentId || undefined,
     leaderboardRank: st.leaderboardRank ?? st.rank ?? 0,
-    parentIds: st.parentIds || st.parents || [],
-    status: st.status || 'active'
+    parentIds: st.parentIds || st.parents || (st.linkedParents ? st.linkedParents.map(p => p._id || p.id || p) : []),
+    status: st.status || 'active',
+    createdAt: st.createdAt
   }));
 };
 
@@ -101,21 +107,61 @@ const normalizeTeachers = (data) => {
       ? payload
       : [];
 
-return list.map((tr) => ({
-    _id: tr._id || tr.id || '',
-    id: tr._id || tr.id || '',
-    name: tr.name || tr.fullName || tr.full_name,
-    email: tr.email || tr.emailId || tr.email_address,
-    subject: tr.subject || (Array.isArray(tr.subjects) ? tr.subjects[0] : undefined),
-    wallet: tr.wallet || {},
-    rating: tr.rating,
-    activeClasses: tr.activeClasses,
-    vlmTeacherId: tr.vlmTeacherId || tr.vlm_id || tr.teacherId || undefined,
-    status: tr.status || 'active',
-    verificationStatus: tr.verificationStatus || undefined,
-    verified: tr.verified || false,
-    documents: tr.documents || []
-  }));
+  return list.map((tr) => {
+    const rawStatus = tr.applicationStatus || tr.status || 'active';
+    const docsArray = Array.isArray(tr.uploadedDocuments) && tr.uploadedDocuments.length > 0
+      ? tr.uploadedDocuments
+      : Array.isArray(tr.documents) && tr.documents.length > 0
+        ? tr.documents
+        : Array.isArray(tr.kycDocuments) && tr.kycDocuments.length > 0
+          ? tr.kycDocuments
+          : Array.isArray(tr.verificationDocuments) && tr.verificationDocuments.length > 0
+            ? tr.verificationDocuments
+            : Array.isArray(tr.docs) && tr.docs.length > 0
+              ? tr.docs
+              : Array.isArray(tr.files) && tr.files.length > 0
+                ? tr.files
+                : [];
+
+    return {
+      _id: tr._id || tr.id || '',
+      id: tr._id || tr.id || '',
+      name: tr.name || tr.fullName || `${tr.firstName || ''} ${tr.lastName || ''}`.trim() || tr.userId?.fullName || 'Unknown Teacher',
+      email: tr.email || tr.userId?.email || '',
+      phone: tr.mobile || tr.userId?.mobile || '',
+      subject: tr.subject || (Array.isArray(tr.subjects) ? tr.subjects.join(', ') : tr.subjects) || 'N/A',
+      subjects: tr.subjects || [],
+      experience: tr.experience || {},
+      qualification: tr.qualification || {},
+      bio: tr.bio || tr.about || '',
+      about: tr.about || tr.bio || '',
+      languages: tr.languages || [],
+      address: tr.address || '',
+      city: tr.city || '',
+      state: tr.state || '',
+      pincode: tr.pincode || '',
+      country: tr.country || '',
+      location: tr.location || {},
+      wallet: tr.wallet || {},
+      rating: tr.rating || 5.0,
+      activeClasses: tr.activeClasses || tr.verifiedClasses || [],
+      vlmTeacherId: tr.vlmTeacherId || undefined,
+      status: rawStatus,
+      verificationStatus: rawStatus,
+      verified: tr.isApproved || tr.verified || false,
+      documents: docsArray,
+      uploadedDocuments: tr.uploadedDocuments || docsArray,
+      rawDocuments: tr.documents,
+      resume: tr.resume || tr.resumeUrl || tr.resumeFile || tr.experience?.resumeUrl,
+      aadhar: tr.aadhar || tr.aadhaar || tr.aadharUrl || tr.aadhaarUrl || tr.aadharCard || tr.aadhaarCard || tr.documents?.aadhaar || tr.documents?.aadhar,
+      qualificationCert: tr.qualificationCert || tr.qualificationCertUrl || tr.degreeCert || tr.degreeUrl || tr.documents?.qualificationCert || tr.qualification?.certificateUrl,
+      experienceProof: tr.experienceProof || tr.experienceProofUrl || tr.experienceCert || tr.experienceUrl || tr.documents?.experienceProof,
+      additionalDoc: tr.additionalDoc || tr.additionalDocUrl || tr.additionalDocument || tr.documents?.additionalDoc,
+      interview: tr.interview || null,
+      bankDetails: tr.bankDetails || null,
+      createdAt: tr.createdAt
+    };
+  });
 };
 
 const normalizeParents = (data) => {
@@ -132,7 +178,8 @@ const normalizeParents = (data) => {
     name: pa.name || pa.fullName || pa.full_name,
     email: pa.email || pa.emailId || pa.email_address,
     phone: pa.phone || pa.mobile || pa.contact,
-    children: pa.children || pa.studentIds || []
+    children: pa.children || pa.studentIds || [],
+    createdAt: pa.createdAt
   }));
 };
 
@@ -157,6 +204,16 @@ export const AdminProvider = ({ children }) => {
   const [authError, setAuthError] = useState('');
 
   const [dashboard, setDashboard] = useState(null);
+  const [dashboardLiveStats, setDashboardLiveStats] = useState(null);
+  const [dashboardSystemHealth, setDashboardSystemHealth] = useState(null);
+  const [dashboardRecentActivities, setDashboardRecentActivities] = useState(null);
+  const [studentStats, setStudentStats] = useState({
+    totalStudents: 0,
+    activeToday: 0,
+    premiumSubscribers: 0,
+    activeStudents: 0,
+    onlineStudents: 0
+  });
   const [students, setStudents] = useState([]);
   const [teachers, setTeachers] = useState([]);
   const [parents, setParents] = useState([]);
@@ -241,10 +298,17 @@ export const AdminProvider = ({ children }) => {
       safeAdminCall(adminGetFinancials),
       safeAdminCall(adminGetWithdrawals),
       safeAdminCall(adminGetResources),
-      safeAdminCall(adminGetPlans)
+      safeAdminCall(adminGetPlans),
+      safeAdminCall(adminGetStudentStats),
+      safeAdminCall(adminGetDashboardLiveStats),
+      safeAdminCall(adminGetSystemHealth),
+      safeAdminCall(adminGetRecentActivities)
     ]);
 
-    const [rDash, rStudents, rTeachers, rParents, rFinancials, rWithdrawals, rResources, rPlans] = results;
+    const [
+      rDash, rStudents, rTeachers, rParents, rFinancials, rWithdrawals, rResources, rPlans, rStudentStats,
+      rLiveStats, rHealth, rRecentAct
+    ] = results;
 
     if (!rDash.ok) setGlobalError(rDash.error?.message || 'Failed to load dashboard');
     if (rDash.ok) setDashboard(rDash.data?.data ?? rDash.data ?? null);
@@ -262,6 +326,14 @@ export const AdminProvider = ({ children }) => {
     if (rWithdrawals.ok) setWithdrawals(rWithdrawals.data?.data ?? rWithdrawals.data ?? []);
     if (rResources.ok) setResources(rResources.data?.data ?? rResources.data ?? []);
     if (rPlans.ok) setPlans(rPlans.data?.data ?? rPlans.data ?? []);
+
+    if (rStudentStats.ok && rStudentStats.data?.data) {
+      setStudentStats(rStudentStats.data.data);
+    }
+
+    if (rLiveStats.ok) setDashboardLiveStats(rLiveStats.data?.data ?? rLiveStats.data ?? null);
+    if (rHealth.ok) setDashboardSystemHealth(rHealth.data?.data ?? rHealth.data ?? null);
+    if (rRecentAct.ok) setDashboardRecentActivities(rRecentAct.data?.data ?? rRecentAct.data ?? null);
 
     if (currentUser?.isSuperAdmin || currentUser?.permissions?.includes('employees')) {
       const rEmployees = await safeAdminCall(adminGetEmployees);
@@ -448,6 +520,9 @@ export const AdminProvider = ({ children }) => {
 
       // Dashboard
       dashboard,
+      dashboardLiveStats,
+      dashboardSystemHealth,
+      dashboardRecentActivities,
       dashboardStats: {
         totalStudents: dashboard?.totalStudents ?? 0,
         activeStudents: dashboard?.activeStudents ?? 0,
@@ -460,6 +535,7 @@ export const AdminProvider = ({ children }) => {
 
       // Data
       students,
+      studentStats,
       teachers,
       parents,
       financials,
@@ -570,15 +646,6 @@ updateStudent: async (id, payload) => {
         if (!res.ok) {
           console.log('[DEBUG] updateStudent - Error:', res.error);
           setGlobalError(res.error?.message || 'Failed to update student');
-          return false;
-        }
-        await refreshAll();
-        return true;
-      },
-      updateStudentSubscription: async (id, payload) => {
-        const res = await safeAdminCall(() => adminUpdateStudentSubscription(id, payload));
-        if (!res.ok) {
-          setGlobalError(res.error?.message || 'Failed to update subscription');
           return false;
         }
         await refreshAll();
@@ -1028,7 +1095,11 @@ updateStudent: async (id, payload) => {
       globalLoading,
       globalError,
       dashboard,
+      dashboardLiveStats,
+      dashboardSystemHealth,
+      dashboardRecentActivities,
       students,
+      studentStats,
       teachers,
       parents,
       financials,

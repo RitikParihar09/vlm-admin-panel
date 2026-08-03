@@ -53,18 +53,34 @@ export const adminGetDashboard = async () => {
   return res.data;
 };
 
+export const adminGetDashboardLiveStats = async () => {
+  const res = await api.get('/dashboard/live-stats', attachAuth());
+  return res.data;
+};
+
+export const adminGetSystemHealth = async () => {
+  const res = await api.get('/dashboard/system-health', attachAuth());
+  return res.data;
+};
+
+export const adminGetRecentActivities = async () => {
+  const res = await api.get('/dashboard/recent-activities', attachAuth());
+  return res.data;
+};
+
+
 export const adminGetStudents = async () => {
-  const res = await api.get('/students', attachAuth());
+  const res = await api.get('/students?limit=10000', attachAuth());
   return res.data;
 };
 
 export const adminGetTeachers = async () => {
-  const res = await api.get('/teachers', attachAuth());
+  const res = await api.get('/teachers?limit=10000', attachAuth());
   return res.data;
 };
 
 export const adminGetParents = async () => {
-  const res = await api.get('/parents', attachAuth());
+  const res = await api.get('/parents?limit=10000', attachAuth());
   return res.data;
 };
 
@@ -385,6 +401,16 @@ export const adminGetAgoraToken = async (interviewId) => {
   return res.data;
 };
 
+export const adminConfirmInterview = async (interviewId) => {
+  const res = await api.post('/teachers/confirm-interview', { interviewId }, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
+export const adminRescheduleInterview = async ({ interviewId, newScheduledAt, reason }) => {
+  const res = await api.post('/teachers/reschedule-interview', { interviewId, newScheduledAt, reason }, attachAuth({ headers: { 'Content-Type': 'application/json' } }));
+  return res.data;
+};
+
 export const adminGetPendingPayouts = async () => {
   const res = await api.get('/payouts/pending', attachAuth());
   return res.data;
@@ -397,6 +423,16 @@ export const adminProcessPayout = async (payload) => {
 
 export const adminGetPayoutHistory = async () => {
   const res = await api.get('/payouts/history', attachAuth());
+  return res.data;
+};
+
+export const adminGetStudentStats = async () => {
+  const res = await api.get('/students/stats', attachAuth());
+  return res.data;
+};
+
+export const adminGetStudentMcqStats = async (studentId) => {
+  const res = await api.get(`/students/${studentId}/mcq-stats`, attachAuth());
   return res.data;
 };
 

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useAdmin } from '../context/AdminContext';
+import { adminGetStudentMcqStats } from '../api/adminAuthApi';
 import ActionModal from '../components/ActionModal';
 import { 
   FaPlus, 
@@ -20,17 +21,47 @@ import {
   FaUserFriends, 
   FaPaperPlane, 
   FaLock, 
-  FaAward
+  FaAward,
+  FaTimes,
+  FaCopy
 } from 'react-icons/fa';
 
 const Students = () => {
-  const { students, parents, addStudent, updateStudent, deleteStudent, plans, updateStudentSubscription } = useAdmin();
+  const { students, parents, addStudent, updateStudent, deleteStudent, plans, updateStudentSubscription, studentStats } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [pointsModalOpen, setPointsModalOpen] = useState(false);
   const [subModalOpen, setSubModalOpen] = useState(false);
   const [editingStudent, setEditingStudent] = useState(null);
   const [pointsStudent, setPointsStudent] = useState(null);
   const [subStudent, setSubStudent] = useState(null);
+  
+  // Student detail drawer states
+  const [selectedStudent, setSelectedStudent] = useState(null);
+  const [copiedId, setCopiedId] = useState(false);
+  const [drawerTab, setDrawerTab] = useState('overview'); // 'overview' | 'academics' | 'parents' | 'performance'
+
+  // MCQ Performance stats
+  const [mcqStats, setMcqStats] = useState(null);
+  const [mcqStatsLoading, setMcqStatsLoading] = useState(false);
+
+  const fetchMcqStats = useCallback(async (studentId) => {
+    setMcqStatsLoading(true);
+    setMcqStats(null);
+    try {
+      const res = await adminGetStudentMcqStats(studentId);
+      if (res?.success) setMcqStats(res.data);
+    } catch (e) {
+      console.error('MCQ stats error', e);
+    } finally {
+      setMcqStatsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (drawerTab === 'performance' && selectedStudent) {
+      fetchMcqStats(selectedStudent._id || selectedStudent.id);
+    }
+  }, [drawerTab, selectedStudent, fetchMcqStats]);
   
   // Subscription Form State
   const [subPlanId, setSubPlanId] = useState('');
@@ -105,6 +136,7 @@ const Students = () => {
       class: grade,
       email,
       phone,
+      mobile: phone,
       board,
       leaderboardRank: Number(leaderboardRank),
       wallet: {
@@ -202,6 +234,13 @@ const Students = () => {
     );
   };
 
+  const handleCopyId = (idStr) => {
+    if (!idStr) return;
+    navigator.clipboard.writeText(String(idStr));
+    setCopiedId(true);
+    setTimeout(() => setCopiedId(false), 2000);
+  };
+
   // Helper for generating initials avatar
   const getInitials = (fullName) => {
     if (!fullName) return 'S';
@@ -293,12 +332,12 @@ const Students = () => {
     );
   };
 
-  // Mock static values for metrics to align with the design aesthetics of VLM Academy dashboard
-  const totalStudentCount = students.length;
-  const activeTodayCount = students.filter(s => s.status !== 'inactive').length;
-  const premiumCount = students.filter((s, idx) => idx % 2 === 0).length;
-  const pendingVerifyCount = Math.max(1, Math.floor(students.length * 0.08));
-  const onlineNowCount = Math.max(1, Math.floor(students.length * 0.22));
+  // Real-time values for metrics loaded from backend student stats
+  const totalStudentCount = studentStats?.totalStudents ?? students.length;
+  const activeTodayCount = studentStats?.activeToday ?? students.filter(s => s.status !== 'inactive').length;
+  const premiumCount = studentStats?.premiumSubscribers ?? 0;
+  const activeStudentsCount = studentStats?.activeStudents ?? 0;
+  const onlineNowCount = studentStats?.onlineStudents ?? 0;
 
   return (
     <div className="students-view animate-fade-in">
@@ -350,12 +389,12 @@ const Students = () => {
 
         <div className="glass-panel metric-card-st">
           <div className="metric-icon-wrap amber">
-            <FaHourglassHalf />
+            <FaUserCheck />
           </div>
           <div className="metric-card-info">
-            <span className="m-lbl">Verification Pending</span>
-            <span className="m-val">{pendingVerifyCount}</span>
-            <span className="m-trend negative">↓ 3.2% vs yesterday</span>
+            <span className="m-lbl">Active Students</span>
+            <span className="m-val">{activeStudentsCount}</span>
+            <span className="m-trend positive">↑ {activeStudentsCount > 0 ? 'Live' : '0.0%'}</span>
           </div>
         </div>
 
@@ -484,175 +523,772 @@ const Students = () => {
         </div>
       </div>
 
-      {/* Main Student Data Table */}
-      <div className="students-table-wrapper glass-panel">
-        {paginatedStudents.length === 0 ? (
-          <div className="no-students-placeholder">
-            <FaUserGraduate className="placeholder-icon" />
-            <h4>No students found matching your filters</h4>
-            <p>Modify your search criteria or add a new student using the button above.</p>
-          </div>
-        ) : (
-          <table className="premium-students-table">
-            <thead>
-              <tr>
-                <th style={{ width: '40px' }}></th>
-                <th>Student</th>
-                <th>Student ID</th>
-                <th>Class</th>
-                <th>Board</th>
-                <th>Linked Parents</th>
-                <th>Subscription</th>
-                <th>Streak / XP</th>
-                <th>Status</th>
-                <th>Last Active</th>
-                <th style={{ textAlign: 'right', width: '80px' }}>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedStudents.map((st, idx) => {
-                const totalPoints = st.wallet?.totalPoints ?? st.rewardPoints ?? 0;
-                // Generate a consistent mock streak and last active text for beautiful design
-                const mockStreak = ((totalPoints * 3) % 20) + 1;
-                const isOnline = (totalPoints % 3) === 0;
-                const linkedParentsList = parents.filter(p => st.parentIds?.includes(p.id));
-                const matchedPlan = plans.find(p => p._id === (st.subscription?.planId?._id || st.subscription?.planId));
-                const planName = matchedPlan ? matchedPlan.name : '';
-                const subType = st.subscription?.status === 'active' 
-                  ? (planName || 'Active') 
-                  : (st.subscription?.status || (totalPoints > 300 ? 'Premium' : 'Free'));
+      {/* MAIN MASTER-DETAIL WORKSPACE */}
+      <div style={{ display: 'flex', gap: '20px', alignItems: 'flex-start', position: 'relative', marginTop: '20px' }}>
 
-                return (
-                  <tr key={st._id}>
-                    <td>
-                      <label className="checkbox-container-premium">
-                        <input 
-                          type="checkbox" 
-                          checked={selectedStudentIds.includes(st._id)}
-                          onChange={() => handleToggleSelectOne(st._id)}
-                        />
-                        <span className="checkmark-premium"></span>
-                      </label>
-                    </td>
-                    <td>
-                      <div className="student-profile-flex">
-                        <div className="student-circle-avatar">
-                          {getInitials(st.name)}
-                        </div>
-                        <div className="student-profile-details">
-                          <span className="st-name">{st.name}</span>
-                          <span className="st-phone">{st.phone || '+91 98765 00000'}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td>
-                      <span className="st-id-code">{st.vlmStudentId || `VLM1000${idx + 23}`}</span>
-                    </td>
-                    <td>
-                      <span className={`grade-badge ${getClassBadgeClass(st.grade)}`}>
-                        {st.grade}
-                      </span>
-                    </td>
-                    <td>
-                      <span className="board-lbl">{st.board || 'CBSE'}</span>
-                    </td>
-                    <td>
-                      <div className="linked-parents-td">
-                        {linkedParentsList.length > 0 ? (
-                          linkedParentsList.map((p, pIdx) => (
-                            <div key={p.id || pIdx} className="parent-inline-item">
-                              <span className="p-n">{p.name}</span>
-                              <span className="p-p">{p.phone}</span>
-                            </div>
-                          ))
-                        ) : (
-                          <span className="no-parents-lbl">None Linked</span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="sub-badge-wrap">
-                        <span className={`subscription-badge ${(st.subscription?.status || 'free').toLowerCase()}`}>
-                          {String(subType).toUpperCase()}
-                        </span>
-                        {st.subscription?.expiresAt && (
-                          <span className="sub-expiry">
-                            Exp: {new Date(st.subscription.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td>
-                      <div className="gamification-td">
-                        <span className="streak-fire">🔥 {mockStreak} days</span>
-                        <span className="xp-label">🪙 {totalPoints} pts</span>
-                      </div>
-                    </td>
-                    <td>
-                      <span className={`status-pill ${st.status || 'active'}`}>
-                        {st.status || 'active'}
-                      </span>
-                    </td>
-                    <td>
-                      <div className="last-active-indicator">
-                        <span className={`indicator-dot ${isOnline ? 'online' : 'offline'}`}></span>
-                        <span className="time-lbl">{isOnline ? 'Online now' : '15 mins ago'}</span>
-                      </div>
-                    </td>
-                    <td style={{ textAlign: 'right', position: 'relative' }}>
-                      <button 
-                        className="table-action-trigger-btn"
-                        onClick={() => setActiveActionId(activeActionId === st._id ? null : st._id)}
-                      >
-                        <FaEllipsisV />
-                      </button>
-
-                      {activeActionId === st._id && (
-                        <>
-                          <div 
-                            style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
-                            onClick={() => setActiveActionId(null)}
-                          />
-                          <div className="popover-action-dropdown-menu" style={{ position: 'absolute', right: '10px', top: '38px', zIndex: 999 }}>
-                            <button onClick={() => { setActiveActionId(null); openEditModal(st); }} className="popover-item">
-                              <FaEdit /> Edit Details
-                            </button>
-                            <button onClick={() => { setActiveActionId(null); openPointsModal(st); }} className="popover-item">
-                              <FaCoins /> Manage Points
-                            </button>
-                            <button onClick={() => { setActiveActionId(null); openSubModal(st); }} className="popover-item">
-                              <FaCrown /> Manage Subscription
-                            </button>
-                            <button 
-                              onClick={async () => {
-                                setActiveActionId(null);
-                                const newStatus = st.status === 'inactive' ? 'active' : 'inactive';
-                                await updateStudent(st._id, { status: newStatus });
-                              }} 
-                              className="popover-item"
-                            >
-                              {st.status === 'inactive' ? <FaCheckCircle /> : <FaUserSlash />}
-                              {st.status === 'inactive' ? 'Activate User' : 'Suspend User'}
-                            </button>
-                            <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }}></div>
-                            <button onClick={async () => {
-                              setActiveActionId(null);
-                              if (window.confirm(`Are you sure you want to delete ${st.name}?`)) {
-                                await deleteStudent(st._id);
-                              }
-                            }} className="popover-item text-danger">
-                              <FaTrash /> Delete Student
-                            </button>
-                          </div>
-                        </>
-                      )}
-                    </td>
+        {/* LEFT WORKSPACE: STUDENT TABLE VIEW */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="students-table-wrapper glass-panel" style={{ margin: 0 }}>
+            {paginatedStudents.length === 0 ? (
+              <div className="no-students-placeholder">
+                <FaUserGraduate className="placeholder-icon" />
+                <h4>No students found matching your filters</h4>
+                <p>Modify your search criteria or add a new student using the button above.</p>
+              </div>
+            ) : (
+              <table className="premium-students-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '40px' }} onClick={(e) => e.stopPropagation()}></th>
+                    <th>Student</th>
+                    <th>Student ID</th>
+                    <th>Class</th>
+                    {!selectedStudent && <th>Board</th>}
+                    {!selectedStudent && <th>Linked Parents</th>}
+                    {!selectedStudent && <th>Subscription</th>}
+                    {!selectedStudent && <th>Streak / XP</th>}
+                    <th>Status</th>
+                    {!selectedStudent && <th>Last Active</th>}
+                    <th style={{ textAlign: 'right', width: '80px' }} onClick={(e) => e.stopPropagation()}>Actions</th>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
+                </thead>
+                <tbody>
+                  {paginatedStudents.map((st, idx) => {
+                    const totalPoints = st.wallet?.totalPoints ?? st.rewardPoints ?? 0;
+                    // Generate a consistent mock streak and last active text for beautiful design
+                    const mockStreak = ((totalPoints * 3) % 20) + 1;
+                    const isOnline = (totalPoints % 3) === 0;
+                    const linkedParentsList = parents.filter(p => st.parentIds?.includes(p.id));
+                    const matchedPlan = plans.find(p => p._id === (st.subscription?.planId?._id || st.subscription?.planId));
+                    const planName = matchedPlan ? matchedPlan.name : '';
+                    const subType = st.subscription?.status === 'active' 
+                      ? (planName || 'Active') 
+                      : (st.subscription?.status || (totalPoints > 300 ? 'Premium' : 'Free'));
+
+                    const isSelected = selectedStudent && selectedStudent._id === st._id;
+
+                    return (
+                      <tr 
+                        key={st._id}
+                        onClick={() => {
+                          setSelectedStudent(st);
+                          setDrawerTab('overview');
+                        }}
+                        style={{
+                          cursor: 'pointer',
+                          background: isSelected ? 'rgba(79, 70, 229, 0.06)' : 'transparent',
+                          transition: 'background 0.15s ease'
+                        }}
+                      >
+                        <td onClick={(e) => e.stopPropagation()}>
+                          <label className="checkbox-container-premium">
+                            <input 
+                              type="checkbox" 
+                              checked={selectedStudentIds.includes(st._id)}
+                              onChange={() => handleToggleSelectOne(st._id)}
+                            />
+                            <span className="checkmark-premium"></span>
+                          </label>
+                        </td>
+                        <td>
+                          <div className="student-profile-flex">
+                            <div className="student-circle-avatar">
+                              {getInitials(st.name)}
+                            </div>
+                            <div className="student-profile-details">
+                              <span className="st-name">{st.name}</span>
+                              <span className="st-phone">{st.phone || 'N/A'}</span>
+                            </div>
+                          </div>
+                        </td>
+                        <td>
+                          <span className="st-id-code">{st.vlmStudentId || `VLM1000${idx + 23}`}</span>
+                        </td>
+                        <td>
+                          <span className={`grade-badge ${getClassBadgeClass(st.grade)}`}>
+                            {st.grade}
+                          </span>
+                        </td>
+                        {!selectedStudent && (
+                          <td>
+                            <span className="board-lbl">{st.board || 'CBSE'}</span>
+                          </td>
+                        )}
+                        {!selectedStudent && (
+                          <td>
+                            <div className="linked-parents-td">
+                              {linkedParentsList.length > 0 ? (
+                                linkedParentsList.map((p, pIdx) => (
+                                  <div key={p.id || pIdx} className="parent-inline-item">
+                                    <span className="p-n">{p.name}</span>
+                                    <span className="p-p">{p.phone}</span>
+                                  </div>
+                                ))
+                              ) : (
+                                <span className="no-parents-lbl">None Linked</span>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                        {!selectedStudent && (
+                          <td>
+                            <div className="sub-badge-wrap">
+                              <span className={`subscription-badge ${(st.subscription?.status || 'free').toLowerCase()}`}>
+                                {String(subType).toUpperCase()}
+                              </span>
+                              {st.subscription?.expiresAt && (
+                                <span className="sub-expiry">
+                                  Exp: {new Date(st.subscription.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}
+                                </span>
+                              )}
+                            </div>
+                          </td>
+                        )}
+                        {!selectedStudent && (
+                          <td>
+                            <div className="gamification-td">
+                              <span className="streak-fire">🔥 {mockStreak} days</span>
+                              <span className="xp-label">🪙 {totalPoints} pts</span>
+                            </div>
+                          </td>
+                        )}
+                        <td>
+                          <span className={`status-pill ${st.status || 'active'}`}>
+                            {st.status || 'active'}
+                          </span>
+                        </td>
+                        {!selectedStudent && (
+                          <td>
+                            <div className="last-active-indicator">
+                              <span className={`indicator-dot ${isOnline ? 'online' : 'offline'}`}></span>
+                              <span className="time-lbl">{isOnline ? 'Online now' : '15 mins ago'}</span>
+                            </div>
+                          </td>
+                        )}
+                        <td style={{ textAlign: 'right', position: 'relative' }} onClick={(e) => e.stopPropagation()}>
+                          <button 
+                            className="table-action-trigger-btn"
+                            onClick={() => setActiveActionId(activeActionId === st._id ? null : st._id)}
+                          >
+                            <FaEllipsisV />
+                          </button>
+
+                          {activeActionId === st._id && (
+                            <>
+                              <div 
+                                style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, zIndex: 998 }} 
+                                onClick={() => setActiveActionId(null)}
+                              />
+                              <div className="popover-action-dropdown-menu" style={{ position: 'absolute', right: '10px', top: '38px', zIndex: 999 }}>
+                                <button onClick={() => { setActiveActionId(null); openEditModal(st); }} className="popover-item">
+                                  <FaEdit /> Edit Details
+                                </button>
+                                <button onClick={() => { setActiveActionId(null); openPointsModal(st); }} className="popover-item">
+                                  <FaCoins /> Manage Points
+                                </button>
+                                <button onClick={() => { setActiveActionId(null); openSubModal(st); }} className="popover-item">
+                                  <FaCrown /> Manage Subscription
+                                </button>
+                                <button 
+                                  onClick={async () => {
+                                    setActiveActionId(null);
+                                    const newStatus = st.status === 'inactive' ? 'active' : 'inactive';
+                                    await updateStudent(st._id, { status: newStatus });
+                                  }} 
+                                  className="popover-item"
+                                >
+                                  {st.status === 'inactive' ? <FaCheckCircle /> : <FaUserSlash />}
+                                  {st.status === 'inactive' ? 'Activate User' : 'Suspend User'}
+                                </button>
+                                <div style={{ height: '1px', background: '#e2e8f0', margin: '4px 0' }}></div>
+                                <button onClick={async () => {
+                                  setActiveActionId(null);
+                                  if (window.confirm(`Are you sure you want to delete ${st.name}?`)) {
+                                    await deleteStudent(st._id);
+                                  }
+                                }} className="popover-item text-danger">
+                                  <FaTrash /> Delete Student
+                                </button>
+                              </div>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            )}
+          </div>
+        </div>
+
+        {/* RIGHT SLIDE-IN DETAIL DRAWER (MASTER-DETAIL DETAIL PANEL) */}
+        {selectedStudent && (() => {
+          const totalPoints = selectedStudent.wallet?.totalPoints ?? selectedStudent.rewardPoints ?? 0;
+          const streakVal = selectedStudent.streak ?? 0;
+          const isOnline = (totalPoints % 3) === 0;
+
+          let linkedParentsList = [];
+          if (Array.isArray(selectedStudent.linkedParents) && selectedStudent.linkedParents.length > 0 && typeof selectedStudent.linkedParents[0] === 'object') {
+            linkedParentsList = selectedStudent.linkedParents.map(p => ({
+              id: p._id || p.id,
+              name: p.fullName || p.name,
+              phone: p.mobile || p.phone,
+              email: p.email,
+              preferredLanguage: p.preferredLanguage,
+              controls: p.controls
+            }));
+          } else {
+            const pIds = selectedStudent.parentIds || [];
+            linkedParentsList = parents.filter(p => pIds.includes(p.id || p._id)).map(p => ({
+              id: p.id || p._id,
+              name: p.name || p.fullName,
+              phone: p.phone || p.mobile,
+              email: p.email,
+              preferredLanguage: p.preferredLanguage,
+              controls: p.controls
+            }));
+          }
+
+          const matchedPlan = plans.find(p => p._id === (selectedStudent.subscription?.planId?._id || selectedStudent.subscription?.planId));
+          const planName = matchedPlan ? matchedPlan.name : '';
+          const subType = selectedStudent.subscription?.status === 'active' 
+            ? (planName || 'Active') 
+            : (selectedStudent.subscription?.status || (totalPoints > 300 ? 'Premium' : 'Free'));
+
+          return (
+            <div className="glass-panel" style={{
+              width: '540px',
+              borderRadius: '16px',
+              border: '1px solid var(--panel-border)',
+              boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+              display: 'flex',
+              flexDirection: 'column',
+              overflow: 'hidden',
+              flexShrink: 0
+            }}>
+              {/* DRAWER HEADER */}
+              <div style={{
+                padding: '20px',
+                borderBottom: '1px solid #e2e8f0',
+                background: '#f8fafc',
+                position: 'relative'
+              }}>
+                <button
+                  onClick={() => setSelectedStudent(null)}
+                  style={{
+                    position: 'absolute',
+                    right: '16px',
+                    top: '16px',
+                    border: 'none',
+                    background: '#e2e8f0',
+                    color: '#64748b',
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '50%',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: 0
+                  }}
+                >
+                  <FaTimes size={13} />
+                </button>
+
+                <div style={{ display: 'flex', gap: '14px', alignItems: 'center' }}>
+                  <div style={{
+                    width: '56px',
+                    height: '56px',
+                    borderRadius: '50%',
+                    background: '#e0e7ff',
+                    color: '#4338ca',
+                    fontWeight: '800',
+                    fontSize: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
+                  }}>
+                    {getInitials(selectedStudent.name)}
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <h3 style={{ fontSize: '17px', fontWeight: '700', color: '#0f172a', margin: 0 }}>
+                        {selectedStudent.name}
+                      </h3>
+                      <span style={{
+                        padding: '2px 8px',
+                        borderRadius: '12px',
+                        fontSize: '11px',
+                        fontWeight: '700',
+                        background: selectedStudent.status === 'inactive' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(16, 185, 129, 0.1)',
+                        color: selectedStudent.status === 'inactive' ? '#ef4444' : '#10b981'
+                      }}>
+                        {selectedStudent.status || 'active'}
+                      </span>
+                    </div>
+
+                    <div style={{ fontSize: '12.5px', color: '#64748b', marginTop: '3px' }}>
+                      {selectedStudent.email || 'No email registered'}
+                    </div>
+                    <div style={{ fontSize: '12.5px', color: '#64748b' }}>
+                      {selectedStudent.phone || 'No phone registered'}
+                    </div>
+
+                    <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span>ID: {String(selectedStudent.vlmStudentId || selectedStudent._id || selectedStudent.id)}</span>
+                      <button
+                        onClick={() => handleCopyId(selectedStudent.vlmStudentId || selectedStudent._id || selectedStudent.id)}
+                        style={{ border: 'none', background: 'transparent', color: copiedId ? '#10b981' : '#4f46e5', cursor: 'pointer', padding: 0 }}
+                        title="Copy ID"
+                      >
+                        <FaCopy size={11} /> {copiedId && 'Copied!'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* DRAWER INNER TABS */}
+              <div style={{
+                display: 'flex',
+                borderBottom: '1px solid #e2e8f0',
+                background: '#ffffff'
+              }}>
+                {[
+                  { id: 'overview', label: 'Overview' },
+                  { id: 'academics', label: 'Academics' },
+                  { id: 'parents', label: 'Parents' },
+                  { id: 'performance', label: '📊 Performance' }
+                ].map(tab => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setDrawerTab(tab.id)}
+                    style={{
+                      flex: 1,
+                      padding: '12px 8px',
+                      border: 'none',
+                      borderBottom: drawerTab === tab.id ? '2px solid #4338ca' : '2px solid transparent',
+                      background: 'transparent',
+                      fontWeight: '600',
+                      fontSize: '13px',
+                      color: drawerTab === tab.id ? '#4338ca' : '#64748b',
+                      cursor: 'pointer',
+                      textAlign: 'center'
+                    }}
+                  >
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* DRAWER CONTENT */}
+              <div style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '20px',
+                background: '#ffffff',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '20px'
+              }}>
+                
+                {drawerTab === 'overview' && (
+                  <>
+                    {/* WALLET SUMMARY */}
+                    <div>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Wallet & Recharge Currencies
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+                        {/* Points */}
+                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Points</div>
+                            <div style={{ fontSize: '17px', fontWeight: '800', color: '#3b82f6', marginTop: '4px' }}>🪙 {totalPoints}</div>
+                          </div>
+                          <div style={{ fontSize: '9.5px', color: '#64748b', marginTop: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '4px' }}>
+                            Store reward points
+                          </div>
+                        </div>
+
+                        {/* Call Recharge */}
+                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>Call Recharge</div>
+                            <div style={{ fontSize: '16px', fontWeight: '800', color: '#f59e0b', marginTop: '4px' }}>
+                              ₹ {selectedStudent.wallet?.balance ?? 0} <span style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: '500' }}>Balance</span>
+                            </div>
+                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#4338ca', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              💬 {selectedStudent.wallet?.humanChatCredits ?? 0} <span style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: '500' }}>Doubt Chats</span>
+                            </div>
+                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#0f172a', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              📞 {selectedStudent.wallet?.audioMinutes ?? 0}m <span style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: '500' }}>Audio</span>
+                            </div>
+                            <div style={{ fontSize: '12px', fontWeight: '700', color: '#ef4444', marginTop: '2px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              📹 {selectedStudent.wallet?.videoMinutes ?? 0}m <span style={{ fontSize: '9.5px', color: '#94a3b8', fontWeight: '500' }}>Video</span>
+                            </div>
+                          </div>
+                          <div style={{ fontSize: '9.5px', color: '#64748b', marginTop: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '4px' }}>
+                            Money balance & call minutes
+                          </div>
+                        </div>
+
+                        {/* AI Recharge */}
+                        <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                          <div>
+                            <div style={{ fontSize: '10.5px', color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase' }}>AI Recharge</div>
+                            <div style={{ fontSize: '17px', fontWeight: '800', color: '#10b981', marginTop: '4px' }}>🤖 {selectedStudent.wallet?.aiCredits ?? 0}</div>
+                          </div>
+                          <div style={{ fontSize: '9.5px', color: '#64748b', marginTop: '6px', borderTop: '1px solid #f1f5f9', paddingTop: '4px' }}>
+                            Doubts AI assistant credits
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SUBSCRIPTION DETAILS */}
+                    <div>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Subscription Plan
+                      </h4>
+                      <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '12.5px', color: '#64748b', fontWeight: '500' }}>Current Tier:</span>
+                          <span style={{ fontSize: '13px', color: '#0f172a', fontWeight: '700' }}>{String(subType).toUpperCase()}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                          <span style={{ fontSize: '12.5px', color: '#64748b', fontWeight: '500' }}>Status:</span>
+                          <span style={{ 
+                            fontSize: '12px', 
+                            fontWeight: '700', 
+                            color: selectedStudent.subscription?.status === 'active' ? '#10b981' : '#ef4444' 
+                          }}>
+                            {String(selectedStudent.subscription?.status || 'free').toUpperCase()}
+                          </span>
+                        </div>
+                        {selectedStudent.subscription?.expiresAt && (
+                          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ fontSize: '12.5px', color: '#64748b', fontWeight: '500' }}>Renewal / Expiry:</span>
+                            <span style={{ fontSize: '12.5px', color: '#0f172a', fontWeight: '600' }}>
+                              {new Date(selectedStudent.subscription.expiresAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* STATS SUMMARY */}
+                    <div>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Platform Activity
+                      </h4>
+                      <div style={{ display: 'flex', gap: '16px' }}>
+                        <div style={{ flex: 1, padding: '12px', borderRadius: '10px', background: 'rgba(239, 68, 68, 0.04)', border: '1px solid rgba(239, 68, 68, 0.08)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '20px' }}>🔥</div>
+                          <div style={{ fontSize: '16px', fontWeight: '800', color: '#ef4444', marginTop: '4px' }}>{streakVal} Days</div>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', marginTop: '2px' }}>CURRENT STREAK</div>
+                        </div>
+                        <div style={{ flex: 1, padding: '12px', borderRadius: '10px', background: 'rgba(16, 185, 129, 0.04)', border: '1px solid rgba(16, 185, 129, 0.08)', textAlign: 'center' }}>
+                          <div style={{ fontSize: '20px' }}>🏆</div>
+                          <div style={{ fontSize: '16px', fontWeight: '800', color: '#10b981', marginTop: '4px' }}>#{selectedStudent.leaderboardRank || 1}</div>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', marginTop: '2px' }}>RANK</div>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+
+                {drawerTab === 'academics' && (
+                  <>
+                    {/* CLASS & BOARD */}
+                    <div>
+                      <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Curriculum & Grade
+                      </h4>
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                        <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #f1f5f9', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>GRADE</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginTop: '4px' }}>{selectedStudent.grade || 'N/A'}</div>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #f1f5f9', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>BOARD</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginTop: '4px' }}>{selectedStudent.board || 'CBSE'}</div>
+                        </div>
+                        <div style={{ background: '#f8fafc', padding: '10px', borderRadius: '8px', border: '1px solid #f1f5f9', textAlign: 'center' }}>
+                          <div style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '700' }}>MEDIUM</div>
+                          <div style={{ fontSize: '13px', fontWeight: '700', color: '#1e293b', marginTop: '4px' }}>{selectedStudent.medium || 'English'}</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SUBJECTS OF INTEREST */}
+                    <div>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Preferred Subjects
+                      </h4>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {((Array.isArray(selectedStudent.subjects) && selectedStudent.subjects.length > 0) 
+                          ? selectedStudent.subjects 
+                          : ['Math', 'Science', 'English', 'Social Science', 'Hindi']
+                        ).map((sub, sIdx) => (
+                          <span key={sIdx} style={{ padding: '6px 12px', borderRadius: '20px', background: 'rgba(79, 70, 229, 0.08)', color: '#4338ca', fontSize: '12px', fontWeight: '600' }}>
+                            {sub}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* WEAK AREAS */}
+                    <div>
+                      <h4 style={{ margin: '0 0 8px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Weak Subjects / Needs Improvement
+                      </h4>
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        {((Array.isArray(selectedStudent.weakSubjects) && selectedStudent.weakSubjects.length > 0) 
+                          ? selectedStudent.weakSubjects 
+                          : ['Social Science']
+                        ).map((sub, sIdx) => (
+                          <span key={sIdx} style={{ padding: '6px 12px', borderRadius: '20px', background: 'rgba(239, 68, 68, 0.08)', color: '#ef4444', fontSize: '12px', fontWeight: '600' }}>
+                            {sub}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* STUDY GOALS */}
+                    <div>
+                      <h4 style={{ margin: '0 0 6px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                        Learning Goals
+                      </h4>
+                      <p style={{ margin: 0, fontSize: '13px', color: '#475569', lineHeight: '1.5', background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                        {selectedStudent.learningGoals || 'Improve score in final exams'}
+                      </p>
+                    </div>
+                  </>
+                )}
+
+                {drawerTab === 'parents' && (() => {
+                  const firstParent = linkedParentsList[0];
+                  const controls = firstParent?.controls || {};
+                  const studyHours = controls.dailyStudyHours ? `${controls.dailyStudyHours} Hours` : 'Not Set';
+                  const screenTime = controls.appUsageLimit ? `${controls.appUsageLimit} Mins` : 'Not Set';
+                  const nightRestriction = controls.nightRestriction ? 'Enabled' : 'Disabled';
+                  const nightTimings = controls.allowedTimings ? ` (${controls.allowedTimings.start || ''} - ${controls.allowedTimings.end || ''})` : '';
+
+                  const chatAllowed = controls.featureControl?.chat !== false ? 'Allowed' : 'Restricted';
+                  const videoAllowed = controls.featureControl?.videoCall !== false ? 'Allowed' : 'Restricted';
+                  const liveClassesAllowed = controls.featureControl?.liveClasses !== false ? 'Allowed' : 'Restricted';
+                  const mcqAllowed = controls.featureControl?.mcq !== false ? 'Allowed' : 'Restricted';
+                  const redemptionAllowed = controls.allowRedemption !== false ? 'Allowed' : 'Restricted';
+
+                  return (
+                    <>
+                      {/* LINKED PARENTS LIST */}
+                      <div>
+                        <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          Linked Parent Profiles
+                        </h4>
+                        {linkedParentsList.length > 0 ? (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {linkedParentsList.map((p, pIdx) => (
+                              <div key={p.id || pIdx} style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div>
+                                  <div style={{ fontWeight: '700', color: '#1e293b', fontSize: '13.5px' }}>{p.name}</div>
+                                  <div style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>📞 {p.phone}</div>
+                                  {p.email && <div style={{ fontSize: '12px', color: '#64748b' }}>✉️ {p.email}</div>}
+                                  {p.preferredLanguage && <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>Lang: {p.preferredLanguage.toUpperCase()}</div>}
+                                </div>
+                                <span style={{ fontSize: '11px', fontWeight: '700', background: 'rgba(59, 130, 246, 0.1)', color: '#3b82f6', padding: '2px 8px', borderRadius: '10px' }}>
+                                  Parent
+                                </span>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #f1f5f9', textAlign: 'center', fontSize: '12.5px', color: '#94a3b8' }}>
+                            No parent profiles are linked to this student yet.
+                          </div>
+                        )}
+                      </div>
+
+                      {/* PARENT CONTROLS & MONITORING SETTINGS */}
+                      {linkedParentsList.length > 0 && (
+                        <div>
+                          <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                            Parent Controls & Feature Restriction
+                          </h4>
+                          <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
+                              <span style={{ color: '#64748b' }}>Daily Study Target:</span>
+                              <span style={{ fontWeight: '700', color: '#1e293b' }}>{studyHours}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
+                              <span style={{ color: '#64748b' }}>App Daily Screen Time Limit:</span>
+                              <span style={{ fontWeight: '700', color: '#1e293b' }}>{screenTime}</span>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px' }}>
+                              <span style={{ color: '#64748b' }}>Night Curfew (No Calls):</span>
+                              <span style={{ fontWeight: '700', color: controls.nightRestriction ? '#ef4444' : '#64748b' }}>
+                                {nightRestriction}{nightTimings}
+                              </span>
+                            </div>
+                            <div style={{ borderTop: '1px solid #e2e8f0', margin: '6px 0' }}></div>
+                            <div style={{ fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', marginBottom: '4px' }}>Feature Restrictions</div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                              <div style={{ fontSize: '12px', color: chatAllowed === 'Allowed' ? '#10b981' : '#ef4444', fontWeight: '600' }}>
+                                {chatAllowed === 'Allowed' ? '✓' : '✗'} Real-time Chat: {chatAllowed}
+                              </div>
+                              <div style={{ fontSize: '12px', color: videoAllowed === 'Allowed' ? '#10b981' : '#ef4444', fontWeight: '600' }}>
+                                {videoAllowed === 'Allowed' ? '✓' : '✗'} Video Call: {videoAllowed}
+                              </div>
+                              <div style={{ fontSize: '12px', color: liveClassesAllowed === 'Allowed' ? '#10b981' : '#ef4444', fontWeight: '600' }}>
+                                {liveClassesAllowed === 'Allowed' ? '✓' : '✗'} Live Classes: {liveClassesAllowed}
+                              </div>
+                              <div style={{ fontSize: '12px', color: mcqAllowed === 'Allowed' ? '#10b981' : '#ef4444', fontWeight: '600' }}>
+                                {mcqAllowed === 'Allowed' ? '✓' : '✗'} MCQ Practice: {mcqAllowed}
+                              </div>
+                              <div style={{ fontSize: '12px', color: redemptionAllowed === 'Allowed' ? '#10b981' : '#ef4444', fontWeight: '600', gridColumn: '1 / -1' }}>
+                                {redemptionAllowed === 'Allowed' ? '✓' : '✗'} Reward Points Redemption: {redemptionAllowed}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {drawerTab === 'performance' && (() => {
+                  const subjectColors = {
+                    'Math': '#6366f1', 'Mathematics': '#6366f1',
+                    'Science': '#10b981', 'Physics': '#3b82f6',
+                    'Chemistry': '#f59e0b', 'Biology': '#14b8a6',
+                    'English': '#ec4899', 'Hindi': '#f97316',
+                    'Social Science': '#8b5cf6', 'History': '#a78bfa',
+                    'Geography': '#34d399', 'Civics': '#60a5fa',
+                    'General': '#94a3b8',
+                  };
+                  const getColor = (subj) => subjectColors[subj] || '#6366f1';
+                  const getAccuracyColor = (acc) =>
+                    acc >= 75 ? '#10b981' : acc >= 50 ? '#f59e0b' : '#ef4444';
+                  const getAccuracyLabel = (acc) =>
+                    acc >= 75 ? 'Strong' : acc >= 50 ? 'Average' : 'Weak';
+
+                  if (mcqStatsLoading) return (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
+                      <div style={{ fontSize: '28px', marginBottom: '8px' }}>⏳</div>
+                      <div style={{ fontSize: '13px' }}>Loading performance data…</div>
+                    </div>
+                  );
+
+                  if (!mcqStats) return (
+                    <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8' }}>
+                      <div style={{ fontSize: '28px', marginBottom: '8px' }}>📋</div>
+                      <div style={{ fontSize: '13px' }}>No MCQ performance data yet.</div>
+                      <div style={{ fontSize: '11px', marginTop: '4px' }}>The student must complete at least one daily MCQ.</div>
+                    </div>
+                  );
+
+                  const { subjectPerformance = [], recentTasks = [], summary = {} } = mcqStats;
+
+                  return (
+                    <>
+                      {/* SUMMARY BANNER */}
+                      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '10px' }}>
+                        <div style={{ background: 'linear-gradient(135deg,#6366f1,#4f46e5)', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', color: '#fff' }}>
+                          <div style={{ fontSize: '22px', fontWeight: '800' }}>{summary.overallAccuracy ?? 0}%</div>
+                          <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Overall Accuracy</div>
+                        </div>
+                        <div style={{ background: 'linear-gradient(135deg,#10b981,#059669)', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', color: '#fff' }}>
+                          <div style={{ fontSize: '22px', fontWeight: '800' }}>{summary.totalTasks ?? 0}</div>
+                          <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Tasks Done</div>
+                        </div>
+                        <div style={{ background: 'linear-gradient(135deg,#f59e0b,#d97706)', borderRadius: '12px', padding: '14px 12px', textAlign: 'center', color: '#fff' }}>
+                          <div style={{ fontSize: '22px', fontWeight: '800' }}>{summary.mcqPoints ?? 0}</div>
+                          <div style={{ fontSize: '10px', opacity: 0.85, marginTop: '2px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>MCQ Points</div>
+                        </div>
+                      </div>
+
+                      {/* PER-SUBJECT PERFORMANCE BARS */}
+                      {subjectPerformance.length > 0 ? (
+                        <div>
+                          <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Subject-Wise Accuracy</h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                            {[...subjectPerformance].sort((a, b) => (b.accuracy || 0) - (a.accuracy || 0)).map((sp) => (
+                              <div key={sp.subject} style={{ background: '#f8fafc', padding: '12px', borderRadius: '10px', border: '1px solid #f1f5f9' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ width: '10px', height: '10px', borderRadius: '50%', background: getColor(sp.subject), display: 'inline-block', flexShrink: 0 }} />
+                                    <span style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b' }}>{sp.subject}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{ fontSize: '11px', color: '#64748b' }}>{sp.totalCorrect}/{sp.totalAttempted} correct</span>
+                                    <span style={{ fontSize: '11px', fontWeight: '700', background: `${getAccuracyColor(sp.accuracy)}20`, color: getAccuracyColor(sp.accuracy), padding: '2px 8px', borderRadius: '20px' }}>
+                                      {getAccuracyLabel(sp.accuracy)}
+                                    </span>
+                                  </div>
+                                </div>
+                                <div style={{ height: '7px', background: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+                                  <div style={{ height: '100%', width: `${sp.accuracy || 0}%`, background: `linear-gradient(90deg, ${getColor(sp.subject)}, ${getAccuracyColor(sp.accuracy)})`, borderRadius: '4px', transition: 'width 0.5s ease' }} />
+                                </div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '4px', fontSize: '11px', color: '#94a3b8' }}>
+                                  <span>0%</span>
+                                  <span style={{ fontWeight: '700', color: getAccuracyColor(sp.accuracy) }}>{sp.accuracy ?? 0}%</span>
+                                  <span>100%</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ background: '#f8fafc', padding: '14px', borderRadius: '10px', border: '1px solid #f1f5f9', textAlign: 'center', fontSize: '12.5px', color: '#94a3b8' }}>
+                          No subject-wise breakdown yet. Complete an MCQ to see data.
+                        </div>
+                      )}
+
+                      {/* RECENT MCQ TASK HISTORY */}
+                      {recentTasks.length > 0 && (
+                        <div>
+                          <h4 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '700', color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Recent MCQ Sessions</h4>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            {recentTasks.map((task, ti) => {
+                              const taskAccuracy = task.questions?.length ? Math.round((task.score / task.questions.length) * 100) : 0;
+                              const taskDate = task.completedAt ? new Date(task.completedAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: '2-digit' }) : '—';
+                              return (
+                                <div key={task._id || ti} style={{ background: '#f8fafc', padding: '12px 14px', borderRadius: '10px', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '12px' }}>
+                                  <div style={{ flex: 1 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                                      <span style={{ fontWeight: '700', fontSize: '13px', color: '#1e293b' }}>{task.score ?? 0}/{task.questions?.length ?? 20} correct</span>
+                                      <span style={{ fontSize: '11px', color: '#64748b' }}>{taskDate}</span>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                      {(task.subjectBreakdown || []).map((sb) => (
+                                        <span key={sb.subject} style={{ fontSize: '10px', background: `${getColor(sb.subject)}15`, color: getColor(sb.subject), padding: '2px 7px', borderRadius: '20px', fontWeight: '600', border: `1px solid ${getColor(sb.subject)}30` }}>
+                                          {sb.subject}: {sb.correct}/{sb.total}
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+                                  <div style={{ textAlign: 'right', flexShrink: 0 }}>
+                                    <div style={{ fontSize: '18px', fontWeight: '800', color: getAccuracyColor(taskAccuracy) }}>{taskAccuracy}%</div>
+                                    <div style={{ fontSize: '10px', color: '#94a3b8' }}>+{task.pointsEarned ?? 0} pts</div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )
+        })()}
       </div>
 
       {/* Pagination Controller Row */}

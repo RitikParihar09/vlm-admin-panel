@@ -130,10 +130,11 @@ const PayoutsManagement = () => {
       `"${p.bankDetails?.upiId || ''}"`
     ]);
 
-    const csvContent = 'data:text/csv;charset=utf-8,' + [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
-    const encodedUri = encodeURI(csvContent);
+    const csvContent = [headers.join(','), ...rows.map(e => e.join(','))].join('\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
+    link.setAttribute('href', url);
     link.setAttribute('download', `VLM_Pending_Payouts_${new Date().toISOString().split('T')[0]}.csv`);
     document.body.appendChild(link);
     link.click();
@@ -169,10 +170,10 @@ const PayoutsManagement = () => {
                 <FaWallet size={24} />
               </div>
               <div>
-                <h1 style={{ fontSize: '24px', fontWeight: '700', margin: 0, color: 'var(--text-main, #f8fafc)' }}>
+                <h1 style={{ fontSize: '24px', fontWeight: '700', margin: 0, color: '#0f172a' }}>
                   Weekly Payouts Management
                 </h1>
-                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#94a3b8' }}>
+                <p style={{ margin: '4px 0 0 0', fontSize: '14px', color: '#475569' }}>
                   Manage teacher session earnings, perform manual net-banking transfers, and log UTR numbers.
                 </p>
               </div>
@@ -199,12 +200,12 @@ const PayoutsManagement = () => {
 
         {/* Tab & Search Bar */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '24px', flexWrap: 'wrap', gap: '16px' }}>
-          <div style={{ display: 'flex', gap: '8px', background: 'rgba(0, 0, 0, 0.2)', padding: '4px', borderRadius: '10px', border: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
             <button
               onClick={() => setActiveTab('pending')}
               style={{
                 padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '13px',
-                background: activeTab === 'pending' ? '#3b82f6' : 'transparent', color: activeTab === 'pending' ? '#fff' : '#94a3b8',
+                background: activeTab === 'pending' ? '#3b82f6' : 'transparent', color: activeTab === 'pending' ? '#fff' : '#475569',
                 transition: 'all 0.2s'
               }}
             >
@@ -214,7 +215,7 @@ const PayoutsManagement = () => {
               onClick={() => setActiveTab('history')}
               style={{
                 padding: '8px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: '600', fontSize: '13px',
-                background: activeTab === 'history' ? '#3b82f6' : 'transparent', color: activeTab === 'history' ? '#fff' : '#94a3b8',
+                background: activeTab === 'history' ? '#3b82f6' : 'transparent', color: activeTab === 'history' ? '#fff' : '#475569',
                 transition: 'all 0.2s'
               }}
             >
@@ -238,17 +239,29 @@ const PayoutsManagement = () => {
 
       {/* Summary Cards */}
       {activeTab === 'pending' && (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px', marginBottom: '24px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '24px' }}>
           <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ fontSize: '12.5px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>Total Pending Amount</div>
-            <div style={{ fontSize: '26px', fontWeight: '800', color: '#34d399', marginTop: '6px' }}>
+            <div style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600', textTransform: 'uppercase' }}>Eligible Teachers</div>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: '#1d4ed8', marginTop: '6px' }}>
+              {pendingPayouts.length} Candidates
+            </div>
+          </div>
+          <div className="glass-panel" style={{ padding: '20px' }}>
+            <div style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600', textTransform: 'uppercase' }}>Teacher Share (75%)</div>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: '#047857', marginTop: '6px' }}>
               ₹{totalPendingAmount.toLocaleString('en-IN')}
             </div>
           </div>
           <div className="glass-panel" style={{ padding: '20px' }}>
-            <div style={{ fontSize: '12.5px', color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase' }}>Eligible Teachers</div>
-            <div style={{ fontSize: '26px', fontWeight: '800', color: '#60a5fa', marginTop: '6px' }}>
-              {pendingPayouts.length} Candidates
+            <div style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600', textTransform: 'uppercase' }}>Company Share (25%)</div>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: '#c2410c', marginTop: '6px' }}>
+              ₹{Number((totalPendingAmount * 0.25 / 0.75).toFixed(2)).toLocaleString('en-IN')}
+            </div>
+          </div>
+          <div className="glass-panel" style={{ padding: '20px' }}>
+            <div style={{ fontSize: '12.5px', color: '#475569', fontWeight: '600', textTransform: 'uppercase' }}>Total Gross Volume (100%)</div>
+            <div style={{ fontSize: '24px', fontWeight: '800', color: '#6d28d9', marginTop: '6px' }}>
+              ₹{Number((totalPendingAmount / 0.75).toFixed(2)).toLocaleString('en-IN')}
             </div>
           </div>
         </div>
@@ -260,37 +273,37 @@ const PayoutsManagement = () => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>TEACHER</th>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>WITHDRAWABLE BALANCE</th>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>BANK ACCOUNT DETAILS</th>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>UPI ID</th>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600', textAlign: 'right' }}>ACTION</th>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>TEACHER</th>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>WITHDRAWABLE BALANCE</th>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>BANK ACCOUNT DETAILS</th>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>UPI ID</th>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600', textAlign: 'right' }}>ACTION</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading payouts...</td></tr>
+                  <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading payouts...</td></tr>
                 ) : filteredPending.length === 0 ? (
-                  <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No pending payouts found.</td></tr>
+                  <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>No pending payouts found.</td></tr>
                 ) : (
                   filteredPending.map((item) => (
-                    <tr key={item.teacherId} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                    <tr key={item.teacherId} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontWeight: '600', color: '#f8fafc', fontSize: '14px' }}>{item.teacherName}</div>
-                        <div style={{ fontSize: '12px', color: '#94a3b8' }}>{item.email}</div>
-                        <div style={{ fontSize: '11px', color: '#3b82f6', marginTop: '2px' }}>ID: {item.vlmTeacherId}</div>
+                        <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>{item.teacherName}</div>
+                        <div style={{ fontSize: '12px', color: '#475569' }}>{item.email}</div>
+                        <div style={{ fontSize: '11px', color: '#1d4ed8', marginTop: '2px' }}>ID: {item.vlmTeacherId}</div>
                       </td>
 
                       <td style={{ padding: '16px 20px' }}>
-                        <div style={{ fontSize: '16px', fontWeight: '700', color: '#34d399' }}>
+                        <div style={{ fontSize: '16px', fontWeight: '700', color: '#047857' }}>
                           ₹{(item.withdrawableBalance || 0).toLocaleString('en-IN')}
                         </div>
                       </td>
 
                       <td style={{ padding: '16px 20px' }}>
                         {item.bankDetails ? (
-                          <div style={{ fontSize: '12px', color: '#e2e8f0' }}>
+                          <div style={{ fontSize: '12px', color: '#334155' }}>
                             <div><strong>Holder:</strong> {item.bankDetails.accountHolder || item.teacherName}</div>
                             <div><strong>Bank:</strong> {item.bankDetails.bankName || 'N/A'}</div>
                             <div><strong>A/C:</strong> {item.bankDetails.accountNumber}</div>
@@ -301,7 +314,7 @@ const PayoutsManagement = () => {
                         )}
                       </td>
 
-                      <td style={{ padding: '16px 20px', fontSize: '12.5px', color: '#cbd5e1' }}>
+                      <td style={{ padding: '16px 20px', fontSize: '12.5px', color: '#334155' }}>
                         {item.bankDetails?.upiId || 'N/A'}
                       </td>
 
@@ -324,45 +337,45 @@ const PayoutsManagement = () => {
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
               <thead>
-                <tr style={{ background: 'rgba(255, 255, 255, 0.03)', borderBottom: '1px solid rgba(255, 255, 255, 0.08)' }}>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>PAID TO TEACHER</th>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>AMOUNT</th>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>BANK UTR / REF NO.</th>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>PROCESSED BY</th>
-                  <th style={{ padding: '16px 20px', color: '#94a3b8', fontSize: '12.5px', fontWeight: '600' }}>PAID DATE</th>
+                <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>PAID TO TEACHER</th>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>AMOUNT</th>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>BANK UTR / REF NO.</th>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>PROCESSED BY</th>
+                  <th style={{ padding: '16px 20px', color: '#475569', fontSize: '12.5px', fontWeight: '600' }}>PAID DATE</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
-                  <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>Loading history...</td></tr>
+                  <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>Loading history...</td></tr>
                 ) : filteredHistory.length === 0 ? (
-                  <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#94a3b8' }}>No completed payout records.</td></tr>
+                  <tr><td colSpan="5" style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>No completed payout records.</td></tr>
                 ) : (
                   filteredHistory.map((item) => {
                     const teacherObj = item.teacherId || {};
                     const name = `${teacherObj.firstName || ''} ${teacherObj.lastName || ''}`.trim() || 'Teacher';
                     return (
-                      <tr key={item._id} style={{ borderBottom: '1px solid rgba(255, 255, 255, 0.05)' }}>
+                      <tr key={item._id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                         <td style={{ padding: '16px 20px' }}>
-                          <div style={{ fontWeight: '600', color: '#f8fafc', fontSize: '14px' }}>{name}</div>
-                          <div style={{ fontSize: '11px', color: '#3b82f6' }}>ID: {teacherObj.vlmTeacherId || 'N/A'}</div>
+                          <div style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>{name}</div>
+                          <div style={{ fontSize: '11px', color: '#1d4ed8' }}>ID: {teacherObj.vlmTeacherId || 'N/A'}</div>
                         </td>
 
-                        <td style={{ padding: '16px 20px', fontSize: '15px', fontWeight: '700', color: '#34d399' }}>
+                        <td style={{ padding: '16px 20px', fontSize: '15px', fontWeight: '700', color: '#047857' }}>
                           ₹{(item.amount || 0).toLocaleString('en-IN')}
                         </td>
 
                         <td style={{ padding: '16px 20px' }}>
-                          <span style={{ padding: '4px 8px', borderRadius: '6px', background: 'rgba(255, 255, 255, 0.05)', fontSize: '12px', fontFamily: 'monospace', color: '#60a5fa' }}>
+                          <span style={{ padding: '4px 8px', borderRadius: '6px', background: '#eff6ff', fontSize: '12px', fontFamily: 'monospace', color: '#1d4ed8' }}>
                             {item.transactionReference}
                           </span>
                         </td>
 
-                        <td style={{ padding: '16px 20px', fontSize: '12.5px', color: '#cbd5e1' }}>
+                        <td style={{ padding: '16px 20px', fontSize: '12.5px', color: '#334155' }}>
                           {item.paidBy?.fullName || item.paidBy?.email || 'Super Admin'}
                         </td>
 
-                        <td style={{ padding: '16px 20px', fontSize: '12.5px', color: '#94a3b8' }}>
+                        <td style={{ padding: '16px 20px', fontSize: '12.5px', color: '#64748b' }}>
                           {new Date(item.paidAt || Date.now()).toLocaleString('en-IN')}
                         </td>
                       </tr>
@@ -386,10 +399,10 @@ const PayoutsManagement = () => {
             <div style={{ padding: '12px', background: 'rgba(16, 185, 129, 0.1)', borderRadius: '8px', border: '1px solid rgba(16, 185, 129, 0.2)', marginBottom: '16px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <div>
-                  <div style={{ fontWeight: '700', color: '#f8fafc', fontSize: '15px' }}>{selectedPayoutTeacher.teacherName}</div>
-                  <div style={{ fontSize: '12px', color: '#94a3b8' }}>Account: {selectedPayoutTeacher.bankDetails?.accountNumber || 'N/A'} ({selectedPayoutTeacher.bankDetails?.ifsc})</div>
+                  <div style={{ fontWeight: '700', color: '#065f46', fontSize: '15px' }}>{selectedPayoutTeacher.teacherName}</div>
+                  <div style={{ fontSize: '12px', color: '#047857' }}>Account: {selectedPayoutTeacher.bankDetails?.accountNumber || 'N/A'} ({selectedPayoutTeacher.bankDetails?.ifsc})</div>
                 </div>
-                <div style={{ fontSize: '20px', fontWeight: '800', color: '#34d399' }}>
+                <div style={{ fontSize: '20px', fontWeight: '800', color: '#047857' }}>
                   ₹{(selectedPayoutTeacher.withdrawableBalance || 0).toLocaleString('en-IN')}
                 </div>
               </div>
@@ -397,7 +410,7 @@ const PayoutsManagement = () => {
           )}
 
           <div style={{ marginBottom: '16px' }}>
-            <label style={{ display: 'block', color: '#e2e8f0', fontSize: '13.5px', fontWeight: '600', marginBottom: '6px' }}>
+            <label style={{ display: 'block', color: '#1e293b', fontSize: '13.5px', fontWeight: '600', marginBottom: '6px' }}>
               Bank UTR / Transaction Reference Number <span style={{ color: '#ef4444' }}>*</span>
             </label>
             <input
@@ -412,17 +425,17 @@ const PayoutsManagement = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '16px' }}>
             <div>
-              <label style={{ display: 'block', color: '#e2e8f0', fontSize: '12.5px', fontWeight: '600', marginBottom: '4px' }}>Period Start</label>
+              <label style={{ display: 'block', color: '#334155', fontSize: '12.5px', fontWeight: '600', marginBottom: '4px' }}>Period Start</label>
               <input type="date" className="glass-input" value={periodStart} onChange={e => setPeriodStart(e.target.value)} style={{ width: '100%' }} />
             </div>
             <div>
-              <label style={{ display: 'block', color: '#e2e8f0', fontSize: '12.5px', fontWeight: '600', marginBottom: '4px' }}>Period End</label>
+              <label style={{ display: 'block', color: '#334155', fontSize: '12.5px', fontWeight: '600', marginBottom: '4px' }}>Period End</label>
               <input type="date" className="glass-input" value={periodEnd} onChange={e => setPeriodEnd(e.target.value)} style={{ width: '100%' }} />
             </div>
           </div>
 
           <div style={{ marginBottom: '20px' }}>
-            <label style={{ display: 'block', color: '#e2e8f0', fontSize: '13.5px', fontWeight: '600', marginBottom: '6px' }}>
+            <label style={{ display: 'block', color: '#1e293b', fontSize: '13.5px', fontWeight: '600', marginBottom: '6px' }}>
               Notes:
             </label>
             <input

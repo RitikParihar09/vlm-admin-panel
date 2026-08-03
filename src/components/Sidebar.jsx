@@ -35,13 +35,13 @@ import logo from '../assets/logo.png';
 
 const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed }) => {
   const { adminUser } = useAdmin();
-  const [userMenuExpanded, setUserMenuExpanded] = useState(false);
+  const [teachersMenuExpanded, setTeachersMenuExpanded] = useState(false);
   const [marketingMenuExpanded, setMarketingMenuExpanded] = useState(false);
   const [subscriptionMenuExpanded, setSubscriptionMenuExpanded] = useState(false);
 
   useEffect(() => {
-    if (activeView === 'students' || activeView === 'teachers' || activeView === 'parents') {
-      setUserMenuExpanded(true);
+    if (['teachers', 'teachers-verification', 'teachers-profiles', 'teachers-interviews'].includes(activeView)) {
+      setTeachersMenuExpanded(true);
     }
     if (activeView === 'promocodes' || activeView === 'banners') {
       setMarketingMenuExpanded(true);
@@ -61,17 +61,31 @@ const Sidebar = ({ activeView, setActiveView, onLogout, collapsed, setCollapsed 
           icon: <FaTachometerAlt />,
         },
         {
-          id: "users",
-          name: "User Management",
-          icon: <FaUsers />,
+          id: "students",
+          name: "Students",
+          icon: <FaUserGraduate />,
+          requiredPermission: "students"
+        },
+        {
+          id: "teachers-group",
+          name: "Teachers",
+          icon: <FaChalkboardTeacher />,
           isExpandable: true,
-          expanded: userMenuExpanded,
-          setExpanded: setUserMenuExpanded,
+          expanded: teachersMenuExpanded,
+          setExpanded: setTeachersMenuExpanded,
+          requiredPermission: "teachers",
           subItems: [
-            { id: "students", name: "Students", icon: <FaUserGraduate />, requiredPermission: "students" },
-            { id: "teachers", name: "Teachers", icon: <FaChalkboardTeacher />, requiredPermission: "teachers" },
-            { id: "parents", name: "Parents", icon: <FaUsers />, requiredPermission: "parents" }
+            { id: "teachers", name: "Overview", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "teachers" },
+            { id: "teachers-verification", name: "Verification", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "teachers" },
+            { id: "teachers-interviews", name: "Interviews", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "teachers" },
+            { id: "teachers-profiles", name: "Profiles", icon: <FaChevronRight style={{ fontSize: '10px' }} />, requiredPermission: "teachers" }
           ]
+        },
+        {
+          id: "parents",
+          name: "Parents",
+          icon: <FaUsers />,
+          requiredPermission: "parents"
         },
         {
           id: "studymaterial",

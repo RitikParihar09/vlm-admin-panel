@@ -150,9 +150,9 @@ const WalletRewards = () => {
                 <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
                   <div style={{ 
                     height: '42px', width: '42px', borderRadius: '10px', background: 'rgba(79, 70, 229, 0.08)',
-                    display: 'flex', alignItems: 'center', justify: 'center', color: '#4f46e5', fontSize: '18px'
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#4f46e5', fontSize: '18px'
                   }}>
-                    <FaGift style={{ margin: 'auto' }} />
+                    <FaGift />
                   </div>
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>

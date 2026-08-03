@@ -31,8 +31,14 @@ import MediaManagement from './views/MediaManagement';
 import FounderDashboard from './views/FounderDashboard';
 import TeacherVerification from './views/TeacherVerification';
 import PayoutsManagement from './views/PayoutsManagement';
+import LiveInterviewSession from './views/LiveInterviewSession';
 
 function AppContent() {
+  const urlParams = new URLSearchParams(window.location.search);
+  if (urlParams.get('view') === 'live-interview') {
+    return <LiveInterviewSession />;
+  }
+
   const { adminUser, logoutAdmin } = useAdmin();
   const [activeView, setActiveView] = useState(() => {
     return localStorage.getItem('adminActiveView') || 'dashboard';
@@ -52,6 +58,9 @@ function AppContent() {
   const viewPermissions = {
     students: 'students',
     teachers: 'teachers',
+    'teachers-verification': 'teachers',
+    'teachers-interviews': 'teachers',
+    'teachers-profiles': 'teachers',
     'teacher-verification': 'teachers',
     payouts: 'financials',
     parents: 'parents',
@@ -106,7 +115,10 @@ function AppContent() {
     switch (activeView) {
       case 'dashboard': return <Dashboard setActiveView={setActiveView} />;
       case 'students': return <Students />;
-      case 'teachers': return <Teachers />;
+      case 'teachers': return <Teachers defaultTab="overview" />;
+      case 'teachers-verification': return <Teachers defaultTab="verification" />;
+      case 'teachers-interviews': return <Teachers defaultTab="interviews" />;
+      case 'teachers-profiles': return <Teachers defaultTab="profiles" />;
       case 'teacher-verification': return <TeacherVerification />;
       case 'payouts': return <PayoutsManagement />;
       case 'parents': return <Parents />;
