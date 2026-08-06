@@ -1508,7 +1508,7 @@ const Teachers = ({ defaultTab = 'overview' }) => {
                                       height: '32px',
                                       borderRadius: '8px',
                                       cursor: 'pointer',
-                                      display: 'flex',
+                                      display: (tr.verified === true || tr.status === 'approved' || tr.status === 'verified' || tr.status === 'rejected') ? 'none' : 'flex',
                                       alignItems: 'center',
                                       justifyContent: 'center',
                                       padding: 0
@@ -1745,30 +1745,35 @@ const Teachers = ({ defaultTab = 'overview' }) => {
                   borderBottom: '1px solid #e2e8f0',
                   background: '#ffffff'
                 }}>
-                  {[
-                    { id: 'overview', label: 'Overview' },
-                    { id: 'documents', label: 'Documents' },
-                    { id: 'interview', label: 'Interview' },
-                    { id: 'activity', label: 'Activity' }
-                  ].map(tab => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setDrawerTab(tab.id)}
-                      style={{
-                        flex: 1,
-                        padding: '12px 8px',
-                        border: 'none',
-                        borderBottom: drawerTab === tab.id ? '2px solid #4f46e5' : '2px solid transparent',
-                        background: 'transparent',
-                        color: drawerTab === tab.id ? '#4f46e5' : '#64748b',
-                        fontWeight: drawerTab === tab.id ? '700' : '500',
-                        fontSize: '13px',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
+                  {(() => {
+                    const isVerified = selectedTeacher.verified === true || selectedTeacher.status === 'approved' || selectedTeacher.status === 'verified';
+                    const isRejected = selectedTeacher.status === 'rejected';
+                    const needsInterview = !isVerified && !isRejected;
+                    return [
+                      { id: 'overview', label: 'Overview' },
+                      { id: 'documents', label: 'Documents' },
+                      ...(needsInterview ? [{ id: 'interview', label: 'Interview' }] : []),
+                      { id: 'activity', label: 'Activity' }
+                    ].map(tab => (
+                      <button
+                        key={tab.id}
+                        onClick={() => setDrawerTab(tab.id)}
+                        style={{
+                          flex: 1,
+                          padding: '12px 8px',
+                          border: 'none',
+                          borderBottom: drawerTab === tab.id ? '2px solid #4f46e5' : '2px solid transparent',
+                          background: 'transparent',
+                          color: drawerTab === tab.id ? '#4f46e5' : '#64748b',
+                          fontWeight: drawerTab === tab.id ? '700' : '500',
+                          fontSize: '13px',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        {tab.label}
+                      </button>
+                    ));
+                  })()}
                 </div>
 
                 {/* DRAWER TAB BODY CONTENT */}
@@ -2065,37 +2070,119 @@ const Teachers = ({ defaultTab = 'overview' }) => {
                   )}
 
                   {/* 4. ACTIVITY TAB */}
-                  {drawerTab === 'activity' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                      <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-                        Activity Timeline
-                      </h4>
+                  {drawerTab === 'activity' && (() => {
+                    // Build real activity events from teacher data
+                    const events = [];
 
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative', paddingLeft: '16px' }}>
-                        <div style={{ position: 'absolute', left: '5px', top: '6px', bottom: '6px', width: '2px', background: '#e2e8f0' }} />
+                    if (selectedTeacher.createdAt) {
+                      events.push({
+                        title: 'Application Submitted',
+                        date: new Date(selectedTeacher.createdAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                        color: '#6366f1'
+                      });
+                    }
 
-                        {[
-                          { title: 'Application Submitted', date: selectedTeacher.createdAt ? new Date(selectedTeacher.createdAt).toLocaleString('en-IN') : '19 Jul 2025, 04:30 PM' },
-                          { title: 'Documents Uploaded', date: '19 Jul 2025, 04:45 PM' },
-                          { title: 'Interview Scheduled', date: '20 Jul 2025, 11:00 AM' }
-                        ].map((act, idx) => (
-                          <div key={idx} style={{ position: 'relative' }}>
-                            <div style={{
-                              position: 'absolute',
-                              left: '-16px',
-                              top: '4px',
-                              width: '10px',
-                              height: '10px',
-                              borderRadius: '50%',
-                              background: '#4f46e5'
-                            }} />
-                            <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{act.title}</div>
-                            <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>{act.date}</div>
+                    // Documents uploaded — if documents array exists
+                    const docCount = selectedTeacher.documents?.length || 0;
+                    if (docCount > 0) {
+                      events.push({
+                        title: `${docCount} Document${docCount > 1 ? 's' : ''} Uploaded`,
+                        date: selectedTeacher.documents?.[0]?.uploadedAt
+                          ? new Date(selectedTeacher.documents[0].uploadedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : 'During Onboarding',
+                        color: '#3b82f6'
+                      });
+                    }
+
+                    // Interview scheduled
+                    const interview = selectedTeacher.interview || (selectedTeacher.interviews && selectedTeacher.interviews[0]);
+                    if (interview?.scheduledAt) {
+                      events.push({
+                        title: `Interview ${interview.status === 'confirmed' ? 'Confirmed' : interview.status === 'rescheduled' ? 'Rescheduled' : 'Scheduled'}`,
+                        date: new Date(interview.scheduledAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }),
+                        color: '#f59e0b'
+                      });
+                    }
+
+                    // Interview completed
+                    if (interview?.completedAt || interview?.status === 'completed') {
+                      events.push({
+                        title: 'Interview Completed',
+                        date: interview.completedAt
+                          ? new Date(interview.completedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : 'Completed',
+                        color: '#10b981'
+                      });
+                    }
+
+                    // Verified / Approved
+                    if (selectedTeacher.verified === true || selectedTeacher.status === 'approved' || selectedTeacher.status === 'verified') {
+                      events.push({
+                        title: '✅ Teacher Verified & Approved',
+                        date: selectedTeacher.verifiedAt
+                          ? new Date(selectedTeacher.verifiedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : selectedTeacher.updatedAt
+                            ? new Date(selectedTeacher.updatedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : 'Approval Date Unknown',
+                        color: '#10b981'
+                      });
+                    }
+
+                    // Rejected
+                    if (selectedTeacher.status === 'rejected') {
+                      events.push({
+                        title: '❌ Application Rejected',
+                        date: selectedTeacher.rejectedAt
+                          ? new Date(selectedTeacher.rejectedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                          : selectedTeacher.updatedAt
+                            ? new Date(selectedTeacher.updatedAt).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                            : 'Rejection Date Unknown',
+                        color: '#ef4444'
+                      });
+                      if (selectedTeacher.rejectionReason) {
+                        events.push({
+                          title: `Reason: ${selectedTeacher.rejectionReason}`,
+                          date: '',
+                          color: '#ef4444',
+                          isNote: true
+                        });
+                      }
+                    }
+
+                    return (
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <h4 style={{ fontSize: '13px', fontWeight: '700', color: '#64748b', margin: 0, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          Activity Timeline
+                        </h4>
+
+                        {events.length === 0 ? (
+                          <div style={{ fontSize: '13px', color: '#94a3b8', textAlign: 'center', padding: '20px 0' }}>
+                            No activity recorded yet.
                           </div>
-                        ))}
+                        ) : (
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', position: 'relative', paddingLeft: '16px' }}>
+                            <div style={{ position: 'absolute', left: '5px', top: '6px', bottom: '6px', width: '2px', background: '#e2e8f0' }} />
+
+                            {events.map((act, idx) => (
+                              <div key={idx} style={{ position: 'relative' }}>
+                                <div style={{
+                                  position: 'absolute',
+                                  left: '-16px',
+                                  top: '4px',
+                                  width: '10px',
+                                  height: '10px',
+                                  borderRadius: '50%',
+                                  background: act.color || '#4f46e5'
+                                }} />
+                                <div style={{ fontSize: '13px', fontWeight: act.isNote ? '400' : '600', color: act.isNote ? '#64748b' : '#0f172a', fontStyle: act.isNote ? 'italic' : 'normal' }}>{act.title}</div>
+                                {act.date && <div style={{ fontSize: '11.5px', color: '#94a3b8', marginTop: '2px' }}>{act.date}</div>}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  )}
+                    );
+                  })()}
                 </div>
 
                 {/* DRAWER FOOTER QUICK ACTIONS */}

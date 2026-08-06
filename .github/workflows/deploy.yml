@@ -1,0 +1,41 @@
+name: Build and Deploy to Hostinger
+
+on:
+  push:
+    branches:
+      - main  # Trigger build on push to main branch
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Checkout codebase
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Setup Node.js environment
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      # 3. Install dependencies and build Vite app
+      - name: Install & Build
+        run: |
+          npm ci
+          npm run build
+        env:
+          VITE_API_BASE_URL: https://vlmacademy.in/api  # Set your production API URL here
+
+      # 4. Sync build files (dist/) to Hostinger via SFTP
+      - name: Deploy to Hostinger
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.HOSTINGER_SSH_HOST }}
+          username: ${{ secrets.HOSTINGER_SSH_USERNAME }}
+          password: ${{ secrets.HOSTINGER_SSH_PASSWORD }}
+          port: 21  # Hostinger standard FTP/SFTP port
+          local-dir: ./dist/
+          server-dir: ./domains/vlmacademy.in/public_html/admin/  # Adjust to your relative path on Hostinger FTP

@@ -9,7 +9,9 @@ import {
   FaGift, 
   FaToggleOn, 
   FaToggleOff, 
-  FaInfoCircle 
+  FaInfoCircle,
+  FaEdit,
+  FaStar
 } from 'react-icons/fa';
 
 const WalletRewards = () => {
@@ -18,7 +20,8 @@ const WalletRewards = () => {
     createCashbackOffer, 
     updateCashbackOffer, 
     deleteCashbackOffer, 
-    toggleCashbackOffer 
+    toggleCashbackOffer,
+    setRecommendedOffer,
   } = useAdmin();
 
   const [offers, setOffers] = useState([]);
@@ -35,6 +38,9 @@ const WalletRewards = () => {
   const [maxCashback, setMaxCashback] = useState(0);
   const [perUserLimit, setPerUserLimit] = useState(0);
   const [usageLimit, setUsageLimit] = useState(0);
+  const [editingOfferId, setEditingOfferId] = useState(null);
+  const [rechargeType, setRechargeType] = useState('combo');
+  const [activeCategory, setActiveCategory] = useState('combo');
 
   const loadOffers = async () => {
     if (!getCashbackOffers) return;
@@ -59,6 +65,11 @@ const WalletRewards = () => {
     if (ok) loadOffers();
   };
 
+  const handleRecommend = async (id) => {
+    const ok = await setRecommendedOffer(id);
+    if (ok) loadOffers();
+  };
+
   const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this cashback offer?')) {
       const ok = await deleteCashbackOffer(id);
@@ -66,39 +77,66 @@ const WalletRewards = () => {
     }
   };
 
+  const handleEdit = (offer) => {
+    setEditingOfferId(offer._id);
+    setTitle(offer.title || '');
+    setDescription(offer.description || '');
+    setRecommendedText(offer.recommendedText || '');
+    setMinRechargeAmount(offer.minRechargeAmount || 100);
+    setCashbackAmount(offer.cashbackAmount || 0);
+    setCashbackPercent(offer.cashbackPercent || 0);
+    setMaxCashback(offer.maxCashback || 0);
+    setPerUserLimit(offer.perUserLimit || 0);
+    setUsageLimit(offer.usageLimit || 0);
+    setRechargeType(offer.rechargeType || 'combo');
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!title.trim() || !minRechargeAmount) {
-      alert('Please fill out the required fields.');
+    if (!minRechargeAmount) {
+      alert('Please enter a recharge amount.');
       return;
     }
 
+    const autoTitle = `Recharge ₹${minRechargeAmount}, Get ${cashbackPercent}% Extra!`;
+    const autoDesc = `Get ${cashbackPercent}% extra bonus balance added directly.`;
+    const autoRecText = `${cashbackPercent}% BONUS`;
+
     const payload = {
-      title,
-      description,
-      recommendedText,
+      title: autoTitle,
+      description: autoDesc,
+      recommendedText: autoRecText,
       minRechargeAmount: Number(minRechargeAmount),
-      cashbackAmount: Number(cashbackAmount),
+      cashbackAmount: 0,
       cashbackPercent: Number(cashbackPercent),
-      maxCashback: Number(maxCashback),
-      perUserLimit: Number(perUserLimit),
-      usageLimit: Number(usageLimit),
-      isActive: true
+      maxCashback: 0,
+      perUserLimit: 0,
+      usageLimit: 0,
+      rechargeType: rechargeType,
     };
 
-    const ok = await createCashbackOffer(payload);
+    let ok;
+    if (editingOfferId) {
+      ok = await updateCashbackOffer(editingOfferId, payload);
+    } else {
+      ok = await createCashbackOffer({ ...payload, isActive: true });
+    }
+
     if (ok) {
       setIsModalOpen(false);
       // Reset form
+      setEditingOfferId(null);
       setTitle('');
       setDescription('');
       setRecommendedText('');
       setMinRechargeAmount(100);
-      setCashbackAmount(10);
+      setCashbackAmount(0);
       setCashbackPercent(0);
       setMaxCashback(0);
       setPerUserLimit(0);
       setUsageLimit(0);
+      setRechargeType(activeCategory);
       loadOffers();
     }
   };
@@ -111,7 +149,21 @@ const WalletRewards = () => {
           <p className="view-subtitle">Configure recharge bonus cash and promotional cashback offers shown to students.</p>
         </div>
         <button 
-          onClick={() => setIsModalOpen(true)}
+          className="premium-btn primary-glow" 
+          onClick={() => {
+            setEditingOfferId(null);
+            setTitle('');
+            setDescription('');
+            setRecommendedText('');
+            setMinRechargeAmount(100);
+            setCashbackAmount(0);
+            setCashbackPercent(0);
+            setMaxCashback(0);
+            setPerUserLimit(0);
+            setUsageLimit(0);
+            setRechargeType(activeCategory);
+            setIsModalOpen(true);
+          }}
           style={{ 
             display: 'flex', alignItems: 'center', gap: '8px', border: 'none', 
             background: 'linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%)', color: '#fff', 
@@ -129,16 +181,52 @@ const WalletRewards = () => {
           <FaGift className="text-violet-500" /> Active Cashback Packs
         </h3>
 
+        {/* Category Tabs */}
+        <div style={{ display: 'flex', gap: '8px', borderBottom: '1px solid #e2e8f0', marginBottom: '20px', paddingBottom: '8px' }}>
+          {['combo', 'ai', 'doubt'].map((tab) => {
+            const labelMap = {
+              combo: 'Combo Recharge',
+              ai: 'AI Tutor Recharge',
+              doubt: 'Doubt Chat Recharge',
+            };
+            const isActive = activeCategory === tab;
+            return (
+              <button
+                key={tab}
+                onClick={() => setActiveCategory(tab)}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '8px',
+                  border: 'none',
+                  background: isActive ? '#4f46e5' : 'transparent',
+                  color: isActive ? '#fff' : '#64748b',
+                  fontWeight: '700',
+                  fontSize: '13px',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                }}
+              >
+                {labelMap[tab]}
+              </button>
+            );
+          })}
+        </div>
+
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px 0', color: '#64748b' }}>Loading active offers...</div>
-        ) : offers.length === 0 ? (
-          <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: '13px' }}>
-            <FaInfoCircle style={{ fontSize: '20px', marginBottom: '8px', color: '#cbd5e1' }} />
-            <p>No cashback offers created yet. Create one to display it during student recharge!</p>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {offers.map((offer) => (
+        ) : (() => {
+          const filteredOffers = offers.filter(o => (o.rechargeType || 'combo') === activeCategory);
+          if (filteredOffers.length === 0) {
+            return (
+              <div style={{ textAlign: 'center', padding: '40px 0', color: '#94a3b8', fontSize: '13px' }}>
+                <FaInfoCircle style={{ fontSize: '20px', marginBottom: '8px', color: '#cbd5e1' }} />
+                <p>No cashback offers created for this category yet. Create one to display it during student recharge!</p>
+              </div>
+            );
+          }
+          return (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {filteredOffers.map((offer) => (
               <div 
                 key={offer._id} 
                 style={{ 
@@ -157,9 +245,9 @@ const WalletRewards = () => {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <h4 style={{ margin: 0, fontSize: '14px', fontWeight: '700', color: '#1e293b' }}>{offer.title}</h4>
-                      {offer.recommendedText && (
-                        <span style={{ background: '#fef3c7', color: '#d97706', fontSize: '9px', fontWeight: '800', padding: '2px 6px', borderRadius: '4px', textTransform: 'uppercase' }}>
-                          {offer.recommendedText}
+                      {offer.isRecommended && (
+                        <span style={{ background: '#fef3c7', color: '#d97706', fontSize: '9px', fontWeight: '800', padding: '2px 8px', borderRadius: '4px', textTransform: 'uppercase', display: 'flex', alignItems: 'center', gap: '3px' }}>
+                          ⭐ RECOMMENDED
                         </span>
                       )}
                     </div>
@@ -170,17 +258,47 @@ const WalletRewards = () => {
                       <span>Cashback: {offer.cashbackPercent > 0 ? `${offer.cashbackPercent}%` : `₹${offer.cashbackAmount}`}</span>
                       <span>•</span>
                       <span>Used: {offer.usedCount} times</span>
+                      <span>•</span>
+                      <span style={{ color: '#4f46e5', textTransform: 'uppercase' }}>
+                        {offer.rechargeType === 'ai' ? 'AI Tutor' : offer.rechargeType === 'doubt' ? 'Doubt Chat' : 'Combo'}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  {/* Recommended star */}
+                  <button
+                    onClick={() => handleRecommend(offer._id)}
+                    style={{ 
+                      border: 'none', background: 'none', cursor: 'pointer', fontSize: '20px', 
+                      display: 'flex', alignItems: 'center',
+                      color: offer.isRecommended ? '#f59e0b' : '#cbd5e1',
+                      transition: 'color 0.2s'
+                    }}
+                    title={offer.isRecommended ? 'Remove Recommended' : 'Mark as Recommended (Default)'}
+                  >
+                    <FaStar />
+                  </button>
+
                   <button 
                     onClick={() => handleToggle(offer._id)}
                     style={{ border: 'none', background: 'none', cursor: 'pointer', fontSize: '22px', display: 'flex', alignItems: 'center' }}
                     title={offer.isActive ? "Deactivate" : "Activate"}
                   >
                     {offer.isActive ? <FaToggleOn className="text-green-500" /> : <FaToggleOff className="text-slate-400" />}
+                  </button>
+
+                  <button 
+                    onClick={() => handleEdit(offer)}
+                    style={{ 
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', height: '34px', width: '34px',
+                      borderRadius: '8px', border: '1px solid #4f46e5', background: 'rgba(79, 70, 229, 0.05)', 
+                      color: '#4f46e5', cursor: 'pointer' 
+                    }}
+                    title="Edit Offer"
+                  >
+                    <FaEdit size={12} />
                   </button>
 
                   <button 
@@ -197,7 +315,8 @@ const WalletRewards = () => {
               </div>
             ))}
           </div>
-        )}
+          );
+        })()}
       </div>
 
       {/* Creation Modal */}
@@ -205,123 +324,45 @@ const WalletRewards = () => {
         <div className="premium-modal-overlay" onClick={() => setIsModalOpen(false)}>
           <div className="premium-modal-content animate-zoom-in" style={{ maxWidth: '480px', width: '90%' }} onClick={(e) => e.stopPropagation()}>
             <div className="side-panel-header">
-              <h3>Create Cashback Offer</h3>
+              <h3>{editingOfferId ? 'Edit Cashback Offer' : 'Create Cashback Offer'}</h3>
               <button className="close-panel-btn" onClick={() => setIsModalOpen(false)}><FaTimes /></button>
             </div>
             <form onSubmit={handleSubmit}>
               <div className="side-panel-body" style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '4px' }}>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                   
                   <div className="form-group-side">
-                    <label>Offer Title *</label>
+                    <label>Recharge Amount (₹) *</label>
                     <input 
-                      type="text" 
+                      type="number" 
                       required
-                      value={title}
-                      onChange={(e) => setTitle(e.target.value)}
-                      placeholder="e.g. Recharge ₹500, Get ₹50 Instant Cashback!"
+                      min="1"
+                      value={minRechargeAmount}
+                      onChange={(e) => setMinRechargeAmount(Math.max(1, parseInt(e.target.value) || 1))}
+                      placeholder="e.g. 5000"
                       className="side-input"
                     />
                   </div>
 
                   <div className="form-group-side">
-                    <label>Description</label>
+                    <label>Extra Bonus Percentage (%) *</label>
                     <input 
-                      type="text" 
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="e.g. Double benefit promotional bonus balance added directly."
+                      type="number" 
+                      required
+                      min="0"
+                      max="100"
+                      value={cashbackPercent}
+                      onChange={(e) => setCashbackPercent(Math.max(0, parseInt(e.target.value) || 0))}
+                      placeholder="e.g. 15"
                       className="side-input"
                     />
-                  </div>
-
-                  <div className="form-group-side">
-                    <label>Recommended Badge Text (Optional)</label>
-                    <input 
-                      type="text" 
-                      value={recommendedText}
-                      onChange={(e) => setRecommendedText(e.target.value)}
-                      placeholder="e.g. HOT OFFER, 10% BONUS"
-                      className="side-input"
-                    />
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div className="form-group-side">
-                      <label>Min Recharge Amount (₹) *</label>
-                      <input 
-                        type="number" 
-                        required
-                        min="100"
-                        value={minRechargeAmount}
-                        onChange={(e) => setMinRechargeAmount(Math.max(100, parseInt(e.target.value) || 100))}
-                        className="side-input"
-                      />
-                    </div>
-                    <div className="form-group-side">
-                      <label>Cashback Amount (₹)</label>
-                      <input 
-                        type="number" 
-                        value={cashbackAmount}
-                        onChange={(e) => setCashbackAmount(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="side-input"
-                        disabled={cashbackPercent > 0}
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div className="form-group-side">
-                      <label>Cashback Percent (%)</label>
-                      <input 
-                        type="number" 
-                        value={cashbackPercent}
-                        onChange={(e) => setCashbackPercent(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="side-input"
-                        placeholder="0 for fixed amount"
-                      />
-                    </div>
-                    <div className="form-group-side">
-                      <label>Max Cashback Cap (₹)</label>
-                      <input 
-                        type="number" 
-                        value={maxCashback}
-                        onChange={(e) => setMaxCashback(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="side-input"
-                        disabled={!cashbackPercent}
-                        placeholder="0 for no limit"
-                      />
-                    </div>
-                  </div>
-
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
-                    <div className="form-group-side">
-                      <label>Per User Limit</label>
-                      <input 
-                        type="number" 
-                        value={perUserLimit}
-                        onChange={(e) => setPerUserLimit(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="side-input"
-                        placeholder="0 for unlimited"
-                      />
-                    </div>
-                    <div className="form-group-side">
-                      <label>Global Usage Limit</label>
-                      <input 
-                        type="number" 
-                        value={usageLimit}
-                        onChange={(e) => setUsageLimit(Math.max(0, parseInt(e.target.value) || 0))}
-                        className="side-input"
-                        placeholder="0 for unlimited"
-                      />
-                    </div>
                   </div>
 
                 </div>
               </div>
               <div className="side-panel-footer" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
                 <button type="button" className="cancel-side-panel-btn" style={{ flex: 1 }} onClick={() => setIsModalOpen(false)}>Cancel</button>
-                <button type="submit" className="save-side-panel-btn" style={{ flex: 1, background: '#4f46e5' }}>Create Offer</button>
+                <button type="submit" className="save-side-panel-btn" style={{ flex: 1, background: '#4f46e5' }}>{editingOfferId ? 'Save Changes' : 'Create Offer'}</button>
               </div>
             </form>
           </div>
@@ -345,6 +386,113 @@ const WalletRewards = () => {
           color: #64748b;
           margin: 4px 0 0 0;
           font-weight: 500;
+        }
+        .premium-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(15, 23, 42, 0.6);
+          backdrop-filter: blur(8px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+        }
+        .premium-modal-content {
+          background: #fff;
+          border: 1px solid #e2e8f0;
+          border-radius: 20px;
+          padding: 24px;
+          box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        }
+        .side-panel-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          border-bottom: 1px solid #f1f5f9;
+          padding-bottom: 16px;
+          margin-bottom: 20px;
+        }
+        .side-panel-header h3 {
+          font-size: 16px;
+          font-weight: 700;
+          color: #0f172a;
+          margin: 0;
+        }
+        .close-panel-btn {
+          background: none;
+          border: none;
+          color: #94a3b8;
+          cursor: pointer;
+          font-size: 18px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: color 0.15s;
+        }
+        .close-panel-btn:hover {
+          color: #f43f5e;
+        }
+        .form-group-side {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 14px;
+          text-align: left;
+        }
+        .form-group-side label {
+          font-size: 11px;
+          font-weight: 700;
+          color: #475569;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .side-input {
+          background: #f8fafc;
+          border: 1px solid #cbd5e1;
+          border-radius: 10px;
+          padding: 10px 14px;
+          color: #0f172a;
+          font-size: 13px;
+          outline: none;
+          width: 100%;
+          box-sizing: border-box;
+          transition: all 0.15s;
+        }
+        .side-input:focus {
+          border-color: #4f46e5;
+          background: #fff;
+          box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+        }
+        .cancel-side-panel-btn {
+          padding: 10px 20px;
+          border-radius: 10px;
+          border: 1px solid #cbd5e1;
+          background: #fff;
+          color: #475569;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .cancel-side-panel-btn:hover {
+          background: #f8fafc;
+          color: #0f172a;
+        }
+        .save-side-panel-btn {
+          padding: 10px 20px;
+          border-radius: 10px;
+          border: none;
+          color: #fff;
+          font-size: 13px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .save-side-panel-btn:hover {
+          opacity: 0.9;
         }
       `}</style>
     </div>

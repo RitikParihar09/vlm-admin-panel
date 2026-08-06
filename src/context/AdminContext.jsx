@@ -62,6 +62,7 @@ import {
   adminUpdateCashbackOffer,
   adminDeleteCashbackOffer,
   adminToggleCashbackOffer,
+  adminSetRecommendedOffer,
   adminUpdateStudentSubscription,
   adminGetStudentStats,
   adminGetDashboardLiveStats,
@@ -1081,6 +1082,14 @@ updateStudent: async (id, payload) => {
         const res = await safeAdminCall(() => adminToggleCashbackOffer(id));
         if (!res.ok) {
           setGlobalError(res.error?.message || 'Failed to toggle cashback offer');
+          return false;
+        }
+        return true;
+      },
+      setRecommendedOffer: async (id) => {
+        const res = await safeAdminCall(() => adminSetRecommendedOffer(id));
+        if (!res.ok) {
+          setGlobalError(res.error?.message || 'Failed to set recommended offer');
           return false;
         }
         return true;

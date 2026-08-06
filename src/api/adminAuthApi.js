@@ -383,6 +383,10 @@ export const adminToggleCashbackOffer = async (id) => {
   const res = await api.patch(`/cashback-offers/${id}/toggle`, {}, attachAuth());
   return res.data;
 };
+export const adminSetRecommendedOffer = async (id) => {
+  const res = await api.patch(`/cashback-offers/${id}/recommend`, {}, attachAuth());
+  return res.data;
+};
 
 
 // Teacher Verification & Payouts API
