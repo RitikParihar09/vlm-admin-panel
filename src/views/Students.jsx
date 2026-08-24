@@ -90,6 +90,7 @@ const Students = () => {
   const [boardFilter, setBoardFilter] = useState('all');
   const [subscriptionFilter, setSubscriptionFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [stateFilter, setStateFilter] = useState('all');
   const [sortBy, setSortBy] = useState('newest');
 
   // Multi-select & actions dropdown state
@@ -266,6 +267,7 @@ const Students = () => {
     setBoardFilter('all');
     setSubscriptionFilter('all');
     setStatusFilter('all');
+    setStateFilter('all');
     setSortBy('newest');
   };
 
@@ -312,7 +314,10 @@ const Students = () => {
     
     const statusMatch = statusFilter === 'all' || (st.status || 'active') === statusFilter;
 
-    return queryMatch && classMatch && boardMatch && subMatch && statusMatch;
+    const stateMatch = stateFilter === 'all' || 
+      (st.state || '').toLowerCase().includes(stateFilter.toLowerCase());
+
+    return queryMatch && classMatch && boardMatch && subMatch && statusMatch && stateMatch;
   });
 
   // Sort students array
@@ -525,6 +530,49 @@ const Students = () => {
               <option value="all">All Statuses</option>
               <option value="active">Active Only</option>
               <option value="inactive">Inactive Only</option>
+            </select>
+          </div>
+
+          <div className="filter-select-group">
+            <label>State</label>
+            <select value={stateFilter} onChange={(e) => { setStateFilter(e.target.value); setCurrentPage(1); }}>
+              <option value="all">All States</option>
+              <option value="Andhra Pradesh">Andhra Pradesh</option>
+              <option value="Arunachal Pradesh">Arunachal Pradesh</option>
+              <option value="Assam">Assam</option>
+              <option value="Bihar">Bihar</option>
+              <option value="Chhattisgarh">Chhattisgarh</option>
+              <option value="Goa">Goa</option>
+              <option value="Gujarat">Gujarat</option>
+              <option value="Haryana">Haryana</option>
+              <option value="Himachal Pradesh">Himachal Pradesh</option>
+              <option value="Jharkhand">Jharkhand</option>
+              <option value="Karnataka">Karnataka</option>
+              <option value="Kerala">Kerala</option>
+              <option value="Madhya Pradesh">Madhya Pradesh</option>
+              <option value="Maharashtra">Maharashtra</option>
+              <option value="Manipur">Manipur</option>
+              <option value="Meghalaya">Meghalaya</option>
+              <option value="Mizoram">Mizoram</option>
+              <option value="Nagaland">Nagaland</option>
+              <option value="Odisha">Odisha</option>
+              <option value="Punjab">Punjab</option>
+              <option value="Rajasthan">Rajasthan</option>
+              <option value="Sikkim">Sikkim</option>
+              <option value="Tamil Nadu">Tamil Nadu</option>
+              <option value="Telangana">Telangana</option>
+              <option value="Tripura">Tripura</option>
+              <option value="Uttar Pradesh">Uttar Pradesh</option>
+              <option value="Uttarakhand">Uttarakhand</option>
+              <option value="West Bengal">West Bengal</option>
+              <option value="Andaman and Nicobar Islands">Andaman & Nicobar</option>
+              <option value="Chandigarh">Chandigarh</option>
+              <option value="Dadra and Nagar Haveli and Daman and Diu">Dadra & Nagar Haveli</option>
+              <option value="Delhi">Delhi</option>
+              <option value="Jammu and Kashmir">Jammu & Kashmir</option>
+              <option value="Ladakh">Ladakh</option>
+              <option value="Lakshadweep">Lakshadweep</option>
+              <option value="Puducherry">Puducherry</option>
             </select>
           </div>
 

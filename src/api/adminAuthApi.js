@@ -450,4 +450,45 @@ export const safeAdminCall = async (fn) => {
   }
 };
 
+// ── Notification API ──────────────────────────────────────────────────────────
+
+export const getNotificationTypes = async () => {
+  const res = await api.get('/notifications/types', attachAuth());
+  return res.data;
+};
+
+export const getNotificationStats = async () => {
+  const res = await api.get('/notifications/stats', attachAuth());
+  return res.data;
+};
+
+export const getAdminNotifications = async (params = {}) => {
+  const res = await api.get('/notifications', attachAuth({ params }));
+  return res.data;
+};
+
+/**
+ * Send a notification immediately.
+ * payload: { title, message, type, audience, filters, deepLink, imageUrl }
+ */
+export const sendAdminNotification = async (payload) => {
+  const res = await api.post('/notifications/send', payload, attachAuth());
+  return res.data;
+};
+
+/**
+ * Get a live preview count of recipients for a given audience/filter set.
+ * payload: { audience, filters }
+ */
+export const previewNotificationCount = async (payload) => {
+  const res = await api.post('/notifications/preview-count', payload, attachAuth());
+  return res.data;
+};
+
+export const deleteBroadcast = async (broadcastId) => {
+  const res = await api.delete(`/notifications/broadcast/${broadcastId}`, attachAuth());
+  return res.data;
+};
+
+
 
