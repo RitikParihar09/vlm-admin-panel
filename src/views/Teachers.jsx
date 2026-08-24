@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAdmin } from '../context/AdminContext';
+import { exportToExcelCSV, getPaginationRange } from '../utils/exportUtils';
 import ActionModal from '../components/ActionModal';
 import {
   adminRescheduleInterview,
@@ -50,7 +51,8 @@ import {
   FaLayerGroup,
   FaUserFriends,
   FaChartBar,
-  FaWallet
+  FaWallet,
+  FaFileExcel
 } from 'react-icons/fa';
 
 // Universal Perfectly Centered Icon Box Helper Component
@@ -93,6 +95,7 @@ const docTypeLabels = {
 };
 
 const Teachers = ({ defaultTab = 'overview' }) => {
+  const [pageSearchVal, setPageSearchVal] = useState('');
   const { teachers, addTeacher, updateTeacher, deleteTeacher, refreshAll } = useAdmin();
   const [activeTab, setActiveTab] = useState(defaultTab); // 'overview', 'all', 'verification', 'interviews', 'approved', 'rejected'
 
@@ -719,6 +722,32 @@ const Teachers = ({ defaultTab = 'overview' }) => {
     .filter(t => !t.verified && t.status !== 'rejected')
     .slice(0, 5);
 
+  const handleExportExcel = () => {
+    const headers = [
+      { label: 'Teacher ID', key: 'vlmTeacherId' },
+      { label: 'Name', key: 'name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Phone', key: 'phone' },
+      { label: 'Subject(s)', key: (tr) => Array.isArray(tr.subjects) ? tr.subjects.join(', ') : (tr.subject || 'N/A') },
+      { label: 'Experience (Years)', key: 'experience.years' },
+      { label: 'Experience (Details)', key: 'experience.details' },
+      { label: 'Qualification (Degree)', key: 'qualification.degree' },
+      { label: 'Qualification (Institute)', key: 'qualification.institute' },
+      { label: 'Address', key: 'address' },
+      { label: 'City', key: 'city' },
+      { label: 'State', key: 'state' },
+      { label: 'Pincode', key: 'pincode' },
+      { label: 'Rating', key: 'rating' },
+      { label: 'Status/Verification', key: 'status' },
+      { label: 'Verified', key: (tr) => tr.verified ? 'Yes' : 'No' },
+      { label: 'Interview Status', key: (tr) => tr.interview?.status || 'N/A' },
+      { label: 'Interview Date', key: (tr) => tr.interview?.scheduledAt ? new Date(tr.interview.scheduledAt).toLocaleString() : 'N/A' },
+      { label: 'Joined On', key: (tr) => tr.createdAt ? new Date(tr.createdAt).toLocaleDateString() : 'N/A' }
+    ];
+
+    exportToExcelCSV(filteredTeachers, headers, 'vlm_teachers');
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', paddingBottom: '40px' }}>
 
@@ -733,6 +762,27 @@ const Teachers = ({ defaultTab = 'overview' }) => {
 
         {/* Top Tab Controls & Add Teacher */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleExportExcel}
+            className="glass-button secondary"
+            style={{
+              borderRadius: '10px',
+              padding: '10px 18px',
+              fontSize: '13.5px',
+              fontWeight: '600',
+              cursor: 'pointer',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              transition: 'transform 0.15s ease',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              background: 'rgba(255, 255, 255, 0.05)'
+            }}
+            onMouseDown={e => e.currentTarget.style.transform = 'scale(0.98)'}
+            onMouseUp={e => e.currentTarget.style.transform = 'scale(1)'}
+          >
+            <FaFileExcel size={13} style={{ color: '#107c41' }} /> Export Excel
+          </button>
           <button
             onClick={openAddModal}
             style={{
@@ -1563,7 +1613,7 @@ const Teachers = ({ defaultTab = 'overview' }) => {
                   </div>
 
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <div style={{ display: 'flex', gap: '4px' }}>
+                    <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                       <button
                         onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                         disabled={currentPage === 1}
@@ -1580,24 +1630,29 @@ const Teachers = ({ defaultTab = 'overview' }) => {
                       >
                         &lt;
                       </button>
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).slice(0, 5).map(pageNum => (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          style={{
-                            padding: '6px 12px',
-                            borderRadius: '6px',
-                            border: pageNum === currentPage ? 'none' : '1px solid #cbd5e1',
-                            background: pageNum === currentPage ? '#4f46e5' : '#ffffff',
-                            color: pageNum === currentPage ? '#ffffff' : '#475569',
-                            cursor: 'pointer',
-                            fontSize: '12.5px',
-                            fontWeight: '600'
-                          }}
-                        >
-                          {pageNum}
-                        </button>
-                      ))}
+                      {getPaginationRange(currentPage, totalPages).map((pageNum, idx) => {
+                        if (pageNum === '...') {
+                          return <span key={`ellipsis-${idx}`} style={{ padding: '6px 12px', color: '#64748b', fontSize: '12.5px', fontWeight: '600' }}>...</span>;
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => setCurrentPage(pageNum)}
+                            style={{
+                              padding: '6px 12px',
+                              borderRadius: '6px',
+                              border: pageNum === currentPage ? 'none' : '1px solid #cbd5e1',
+                              background: pageNum === currentPage ? '#4f46e5' : '#ffffff',
+                              color: pageNum === currentPage ? '#ffffff' : '#475569',
+                              cursor: 'pointer',
+                              fontSize: '12.5px',
+                              fontWeight: '600'
+                            }}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
                       <button
                         onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                         disabled={currentPage === totalPages}
@@ -1613,6 +1668,59 @@ const Teachers = ({ defaultTab = 'overview' }) => {
                         }}
                       >
                         &gt;
+                      </button>
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px' }}>
+                      <input 
+                        type="number"
+                        placeholder="Page..."
+                        value={pageSearchVal}
+                        onChange={(e) => setPageSearchVal(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const pageNum = parseInt(pageSearchVal, 10);
+                            if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+                              setCurrentPage(pageNum);
+                              setPageSearchVal('');
+                            } else {
+                              alert(`Please enter a page number between 1 and ${totalPages}`);
+                            }
+                          }
+                        }}
+                        style={{
+                          width: '65px',
+                          padding: '6px 10px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          fontSize: '12.5px',
+                          background: '#ffffff',
+                          color: '#475569',
+                          textAlign: 'center'
+                        }}
+                      />
+                      <button 
+                        onClick={() => {
+                          const pageNum = parseInt(pageSearchVal, 10);
+                          if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+                            setCurrentPage(pageNum);
+                            setPageSearchVal('');
+                          } else {
+                            alert(`Please enter a page number between 1 and ${totalPages}`);
+                          }
+                        }}
+                        style={{
+                          padding: '6px 12px',
+                          borderRadius: '8px',
+                          border: '1px solid #cbd5e1',
+                          background: '#ffffff',
+                          color: '#475569',
+                          fontSize: '12px',
+                          cursor: 'pointer',
+                          fontWeight: '600'
+                        }}
+                      >
+                        Go
                       </button>
                     </div>
 

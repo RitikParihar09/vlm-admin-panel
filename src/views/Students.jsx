@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import { adminGetStudentMcqStats } from '../api/adminAuthApi';
 import ActionModal from '../components/ActionModal';
+import { exportToExcelCSV, getPaginationRange } from '../utils/exportUtils';
 import { 
   FaPlus, 
   FaSearch, 
@@ -23,10 +24,12 @@ import {
   FaLock, 
   FaAward,
   FaTimes,
-  FaCopy
+  FaCopy,
+  FaFileExcel
 } from 'react-icons/fa';
 
 const Students = () => {
+  const [pageSearchVal, setPageSearchVal] = useState('');
   const { students, parents, addStudent, updateStudent, deleteStudent, plans, updateStudentSubscription, studentStats } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [pointsModalOpen, setPointsModalOpen] = useState(false);
@@ -275,8 +278,18 @@ const Students = () => {
     const vlmIdMatch = (st.vlmStudentId || '').toLowerCase().includes(searchLower);
     const queryMatch = !searchQuery || nameMatch || emailMatch || phoneMatch || vlmIdMatch;
 
-    const classMatch = classFilter === 'all' || st.grade === classFilter;
-    const boardMatch = boardFilter === 'all' || (st.board || 'CBSE') === boardFilter;
+    // Normalize class/grade representations (e.g. "Class 10" -> "10" vs "10" -> "10")
+    const getGradeNumber = (g) => {
+      if (!g) return '';
+      const num = String(g).replace(/\D/g, '');
+      return num || String(g).trim().toLowerCase();
+    };
+
+    const classMatch = classFilter === 'all' || 
+      getGradeNumber(st.grade) === getGradeNumber(classFilter);
+
+    const boardMatch = boardFilter === 'all' || 
+      (st.board || 'CBSE').toLowerCase() === boardFilter.toLowerCase();
     
     const matchedPlan = plans.find(p => p._id === (st.subscription?.planId?._id || st.subscription?.planId));
     const planName = matchedPlan ? matchedPlan.name : '';
@@ -287,8 +300,15 @@ const Students = () => {
       currentSub = planName || 'Premium';
     }
     
-    const subMatch = subscriptionFilter === 'all' || 
-      currentSub.toLowerCase() === subscriptionFilter.toLowerCase();
+    let subMatch = true;
+    if (subscriptionFilter !== 'all') {
+      if (subscriptionFilter.toLowerCase() === 'free') {
+        subMatch = currentSub.toLowerCase() === 'free';
+      } else {
+        // "Premium", "Basic", or "Standard" match active subscriptions
+        subMatch = currentSub.toLowerCase() !== 'free';
+      }
+    }
     
     const statusMatch = statusFilter === 'all' || (st.status || 'active') === statusFilter;
 
@@ -339,6 +359,31 @@ const Students = () => {
   const activeStudentsCount = studentStats?.activeStudents ?? 0;
   const onlineNowCount = studentStats?.onlineStudents ?? 0;
 
+  const handleExportExcel = () => {
+    const headers = [
+      { label: 'Student ID', key: 'vlmStudentId' },
+      { label: 'Name', key: 'name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Phone', key: 'phone' },
+      { label: 'Class/Grade', key: 'grade' },
+      { label: 'Board', key: 'board' },
+      { label: 'Status', key: 'status' },
+      { label: 'XP/Reward Points', key: 'rewardPoints' },
+      { label: 'Streak (Mock)', key: (st) => ((st.rewardPoints * 3) % 20) + 1 },
+      { label: 'Subscription Status', key: (st) => {
+          const matchedPlan = plans.find(p => p._id === (st.subscription?.planId?._id || st.subscription?.planId));
+          const planName = matchedPlan ? matchedPlan.name : '';
+          return st.subscription?.status === 'active' 
+            ? (planName || 'Active') 
+            : (st.subscription?.status || (st.rewardPoints > 300 ? 'Premium' : 'Free'));
+        }
+      },
+      { label: 'Created At', key: (st) => st.createdAt ? new Date(st.createdAt).toLocaleDateString() : 'N/A' }
+    ];
+
+    exportToExcelCSV(sortedStudents, headers, 'vlm_students');
+  };
+
   return (
     <div className="students-view animate-fade-in">
       {/* Premium Sub-Header Title Bar */}
@@ -347,9 +392,18 @@ const Students = () => {
           <h2 className="view-title">Student Management</h2>
           <p className="view-subtitle">Manage, verify, and monitor all students across VLM Academy portal.</p>
         </div>
-        <button className="glass-button add-student-premium-btn" onClick={openAddModal}>
-          <FaPlus style={{ marginRight: '8px' }} /> Add Student
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="glass-button secondary" 
+            onClick={handleExportExcel}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <FaFileExcel style={{ color: '#107c41' }} /> Export Excel
+          </button>
+          <button className="glass-button add-student-premium-btn" onClick={openAddModal}>
+            <FaPlus style={{ marginRight: '8px' }} /> Add Student
+          </button>
+        </div>
       </div>
 
       {/* VLM Style Premium Metrics Cards */}
@@ -450,6 +504,7 @@ const Students = () => {
               <option value="all">All Boards</option>
               <option value="CBSE">CBSE</option>
               <option value="ICSE">ICSE</option>
+              <option value="State Board">State Board</option>
             </select>
           </div>
 
@@ -1298,7 +1353,7 @@ const Students = () => {
             Showing {startIndex + 1} to {Math.min(startIndex + pageSize, totalItems)} of {totalItems} students
           </span>
 
-          <div className="page-buttons-flex">
+          <div className="page-buttons-flex" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button 
               className="page-nav-btn" 
               disabled={currentPage === 1}
@@ -1307,15 +1362,20 @@ const Students = () => {
               Previous
             </button>
             
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-              <button 
-                key={pageNum}
-                className={`page-num-btn ${currentPage === pageNum ? 'active' : ''}`}
-                onClick={() => setCurrentPage(pageNum)}
-              >
-                {pageNum}
-              </button>
-            ))}
+            {getPaginationRange(currentPage, totalPages).map((pageNum, idx) => {
+              if (pageNum === '...') {
+                return <span key={`ellipsis-${idx}`} style={{ padding: '6px 12px', color: 'var(--text-secondary)' }}>...</span>;
+              }
+              return (
+                <button 
+                  key={pageNum}
+                  className={`page-num-btn ${currentPage === pageNum ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
 
             <button 
               className="page-nav-btn" 
@@ -1324,6 +1384,55 @@ const Students = () => {
             >
               Next
             </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px' }}>
+              <input 
+                type="number"
+                placeholder="Page..."
+                value={pageSearchVal}
+                onChange={(e) => setPageSearchVal(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const pageNum = parseInt(pageSearchVal, 10);
+                    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+                      setCurrentPage(pageNum);
+                      setPageSearchVal('');
+                    } else {
+                      alert(`Please enter a page number between 1 and ${totalPages}`);
+                    }
+                  }
+                }}
+                style={{
+                  width: '65px',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(0, 0, 0, 0.15)',
+                  fontSize: '12.5px',
+                  background: 'rgba(255, 255, 255, 0.8)',
+                  textAlign: 'center'
+                }}
+              />
+              <button 
+                onClick={() => {
+                  const pageNum = parseInt(pageSearchVal, 10);
+                  if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+                    setCurrentPage(pageNum);
+                    setPageSearchVal('');
+                  } else {
+                    alert(`Please enter a page number between 1 and ${totalPages}`);
+                  }
+                }}
+                className="glass-button secondary"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                Go
+              </button>
+            </div>
           </div>
 
           <div className="page-size-selector">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAdmin } from '../context/AdminContext';
 import ActionModal from '../components/ActionModal';
+import { exportToExcelCSV, getPaginationRange } from '../utils/exportUtils';
 import { 
   FaPlus, 
   FaSearch, 
@@ -13,10 +14,12 @@ import {
   FaHourglassHalf, 
   FaUserCheck, 
   FaCheckCircle, 
-  FaUserSlash
+  FaUserSlash,
+  FaFileExcel
 } from 'react-icons/fa';
 
 const Parents = () => {
+  const [pageSearchVal, setPageSearchVal] = useState('');
   const { parents, students, addParent, updateParent, deleteParent } = useAdmin();
   const [modalOpen, setModalOpen] = useState(false);
   const [editingParent, setEditingParent] = useState(null);
@@ -129,6 +132,23 @@ const Parents = () => {
     );
   };
 
+  const handleExportExcel = () => {
+    const headers = [
+      { label: 'Parent ID', key: '_id' },
+      { label: 'Name', key: 'name' },
+      { label: 'Email', key: 'email' },
+      { label: 'Phone', key: 'phone' },
+      { label: 'Children/Linked Students', key: (pa) => {
+          const kidsList = students.filter(s => (pa.children || pa.studentIds || []).includes(s.id));
+          return kidsList.map(s => `${s.name} (${s.grade || 'N/A'})`).join(', ');
+        }
+      },
+      { label: 'Created At', key: (pa) => pa.createdAt ? new Date(pa.createdAt).toLocaleDateString() : 'N/A' }
+    ];
+
+    exportToExcelCSV(filteredParents, headers, 'vlm_parents');
+  };
+
   // Metrics numbers
   const totalParentCount = parents.length;
   const activeCount = parents.filter(p => p.status !== 'inactive').length;
@@ -144,9 +164,18 @@ const Parents = () => {
           <h2 className="view-title">Parent Accounts</h2>
           <p className="view-subtitle">Monitor linked parent contacts, phone details, and child study profiles.</p>
         </div>
-        <button className="glass-button add-parent-premium-btn" onClick={openAddModal}>
-          <FaPlus style={{ marginRight: '8px' }} /> Add Parent Account
-        </button>
+        <div style={{ display: 'flex', gap: '12px' }}>
+          <button 
+            className="glass-button secondary" 
+            onClick={handleExportExcel}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}
+          >
+            <FaFileExcel style={{ color: '#107c41' }} /> Export Excel
+          </button>
+          <button className="glass-button add-parent-premium-btn" onClick={openAddModal}>
+            <FaPlus style={{ marginRight: '8px' }} /> Add Parent Account
+          </button>
+        </div>
       </div>
 
       {/* Metrics Row */}
@@ -405,7 +434,7 @@ const Parents = () => {
             Showing {startIndex + 1} to {Math.min(startIndex + pageSize, totalItems)} of {totalItems} profiles
           </span>
 
-          <div className="page-buttons-flex">
+          <div className="page-buttons-flex" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button 
               className="page-nav-btn" 
               disabled={currentPage === 1}
@@ -414,15 +443,20 @@ const Parents = () => {
               Previous
             </button>
             
-            {Array.from({ length: totalPages }, (_, i) => i + 1).map(pageNum => (
-              <button 
-                key={pageNum}
-                className={`page-num-btn ${currentPage === pageNum ? 'active' : ''}`}
-                onClick={() => setCurrentPage(pageNum)}
-              >
-                {pageNum}
-              </button>
-            ))}
+            {getPaginationRange(currentPage, totalPages).map((pageNum, idx) => {
+              if (pageNum === '...') {
+                return <span key={`ellipsis-${idx}`} style={{ padding: '6px 12px', color: 'var(--text-secondary)' }}>...</span>;
+              }
+              return (
+                <button 
+                  key={pageNum}
+                  className={`page-num-btn ${currentPage === pageNum ? 'active' : ''}`}
+                  onClick={() => setCurrentPage(pageNum)}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
 
             <button 
               className="page-nav-btn" 
@@ -431,6 +465,55 @@ const Parents = () => {
             >
               Next
             </button>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginLeft: '12px' }}>
+              <input 
+                type="number"
+                placeholder="Page..."
+                value={pageSearchVal}
+                onChange={(e) => setPageSearchVal(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    const pageNum = parseInt(pageSearchVal, 10);
+                    if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+                      setCurrentPage(pageNum);
+                      setPageSearchVal('');
+                    } else {
+                      alert(`Please enter a page number between 1 and ${totalPages}`);
+                    }
+                  }
+                }}
+                style={{
+                  width: '65px',
+                  padding: '6px 10px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(0, 0, 0, 0.15)',
+                  fontSize: '12.5px',
+                  background: 'rgba(255, 255, 255, 0.8)',
+                  textAlign: 'center'
+                }}
+              />
+              <button 
+                onClick={() => {
+                  const pageNum = parseInt(pageSearchVal, 10);
+                  if (!isNaN(pageNum) && pageNum >= 1 && pageNum <= totalPages) {
+                    setCurrentPage(pageNum);
+                    setPageSearchVal('');
+                  } else {
+                    alert(`Please enter a page number between 1 and ${totalPages}`);
+                  }
+                }}
+                className="glass-button secondary"
+                style={{
+                  padding: '6px 12px',
+                  borderRadius: '8px',
+                  fontSize: '12px',
+                  cursor: 'pointer'
+                }}
+              >
+                Go
+              </button>
+            </div>
           </div>
 
           <div className="page-size-selector">
